@@ -7,7 +7,10 @@ backend/venv/
 # Node
 frontend/node_modules/
 frontend/dist/
-frontend/.vite/
+
+# Vite caches
+.vite/
+**/.vite/
 
 # OS
 .DS_Store
@@ -17,3 +20,9 @@ frontend/.vite/
 # Environment
 .env
 .env.local
+
+# Template leftovers
+frontend/src/assets/
+frontend/README.md
+frontend/test-vite.config.js
+frontend/public/icons.svg
