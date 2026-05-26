@@ -25,6 +25,10 @@ fi
 
 cd "$APP_DIR"
 
+# --- Permissions ---
+chown -R www-data:www-data backend
+chmod 755 backend
+
 # --- Backend ---
 echo "Setting up Python virtual environment..."
 python3 -m venv backend/venv
