@@ -454,10 +454,6 @@ body {
     flex-shrink: 0;
   }
 
-  .tab.hide-mobile {
-    display: none;
-  }
-
   .stats-grid {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
