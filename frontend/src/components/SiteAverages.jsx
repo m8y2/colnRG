@@ -25,7 +25,7 @@ export default function SiteAverages() {
 
   const refLevels = data?.reference_levels;
 
-  const poorThreshold = refLevels?.Poor ?? null;
+  const orangeThreshold = refLevels?.Moderate ?? null;
 
   const chartData = useMemo(
     () => (data?.sites || []).map((s) => ({
@@ -33,9 +33,9 @@ export default function SiteAverages() {
       value: s.mean,
       name: s.name,
       count: s.count,
-      overPoor: poorThreshold != null && s.mean > poorThreshold,
+      overThreshold: orangeThreshold != null && s.mean > orangeThreshold,
     })),
-    [data, poorThreshold]
+    [data, orangeThreshold]
   );
 
   if (loading) return <div className="loading">Loading site averages...</div>;
@@ -45,7 +45,7 @@ export default function SiteAverages() {
       <h3>Site Averages — {data?.chemical} ({data?.unit})</h3>
       <p style={{ fontSize: "0.75rem", color: "#9ca3af", marginBottom: 12 }}>
         Mean value per site across all testing rounds.
-        {refLevels && " Bars are highlighted in orange when the average exceeds the Poor reference threshold."}
+        {refLevels && " Bars are highlighted in orange when the average exceeds the Moderate reference threshold."}
       </p>
       <div className="chart-controls">
         <label>Chemical:</label>
@@ -95,8 +95,8 @@ export default function SiteAverages() {
               {chartData.map((entry) => (
                 <Cell
                   key={entry.site}
-                  fill={entry.overPoor ? "#f97316" : "#3b82f6"}
-                  fillOpacity={entry.overPoor ? 0.85 : 0.7}
+                  fill={entry.overThreshold ? "#f97316" : "#3b82f6"}
+                  fillOpacity={entry.overThreshold ? 0.85 : 0.7}
                 />
               ))}
             </Bar>
