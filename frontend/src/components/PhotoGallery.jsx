@@ -13,15 +13,6 @@ export default function PhotoGallery() {
     });
   }, []);
 
-  useEffect(() => {
-    if (selected) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
-  }, [selected]);
-
   if (loading) return <div className="loading">Loading photos...</div>;
 
   if (photos.length === 0)
@@ -57,14 +48,6 @@ export default function PhotoGallery() {
             alt={selected.photo_desc || "Photo"}
             onClick={(e) => e.stopPropagation()}
           />
-          <div className="photo-overlay-info" onClick={(e) => e.stopPropagation()}>
-            <p><strong>{selected.w3w_site_code || "—"}</strong> · {selected.sample_date}</p>
-            {selected.w3w && <p className="photo-overlay-w3w">{selected.w3w}</p>}
-            {selected.photo_desc && <p>{selected.photo_desc}</p>}
-            {selected.photo_2_url && (
-              <span className="photo-has-second">📷 2 photos</span>
-            )}
-          </div>
         </div>
       )}
     </div>

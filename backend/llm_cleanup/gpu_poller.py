@@ -111,7 +111,7 @@ def wait_for_ssh(ip, timeout=300):
 
 
 def wait_for_ollama(ip, timeout=300):
-    """Wait for Ollama to be ready (model may still be pulling on first boot)."""
+    """Wait for Ollama to be ready. If not running, try to start it."""
     start = time.time()
     while time.time() - start < timeout:
         result = subprocess.run(
@@ -122,6 +122,13 @@ def wait_for_ollama(ip, timeout=300):
         if result.returncode == 0 and "models" in result.stdout:
             print(f"  Ollama ready after {time.time() - start:.0f}s")
             return True
+        # Try to start Ollama if not running
+        if time.time() - start < 30:
+            subprocess.run(
+                ["ssh", "-o", "StrictHostKeyChecking=no", f"root@{ip}",
+                 "ollama serve > /dev/null 2>&1 &"],
+                capture_output=True, timeout=5
+            )
         print(f"  Waiting for Ollama... ({time.time() - start:.0f}s)")
         time.sleep(10)
     return False
