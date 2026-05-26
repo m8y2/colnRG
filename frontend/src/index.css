@@ -643,3 +643,32 @@ body {
     font-size: 1.1rem;
   }
 }
+
+/* ── Report styles ─────────────────────────────────────── */
+
+.report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.report-version-select select {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background: #fff;
+}
+
+.report-text {
+  line-height: 1.7;
+  color: #374151;
+  max-width: 800px;
+}
+
+.report-text p {
+  margin-bottom: 12px;
+}

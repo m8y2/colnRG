@@ -57,6 +57,27 @@ def init_db():
             entries_updated INTEGER DEFAULT 0,
             status TEXT DEFAULT 'running'
         );
+
+        CREATE TABLE IF NOT EXISTS site_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_code TEXT NOT NULL,
+            generated_at TEXT NOT NULL,
+            report_text TEXT NOT NULL,
+            version INTEGER DEFAULT 1
+        );
+
+        CREATE TABLE IF NOT EXISTS round_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            round_label TEXT NOT NULL,
+            round_start TEXT NOT NULL,
+            round_end TEXT NOT NULL,
+            generated_at TEXT NOT NULL,
+            report_text TEXT NOT NULL,
+            version INTEGER DEFAULT 1
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_site_reports ON site_reports(site_code, version);
+        CREATE INDEX IF NOT EXISTS idx_round_reports ON round_reports(round_label, version);
     """)
     conn.commit()
     conn.close()

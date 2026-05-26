@@ -72,3 +72,40 @@ export function getSiteSummary(site) {
 export function getPhotos() {
   return fetchJSON(`${BASE}/photos`);
 }
+
+// ── Reports ──────────────────────────────────────────────
+
+export function getSiteReport(site, version) {
+  const qs = new URLSearchParams({ site });
+  if (version) qs.set("version", version);
+  return fetchJSON(`${BASE}/reports/site?${qs}`);
+}
+
+export function getSiteReportVersions(site) {
+  return fetchJSON(`${BASE}/reports/site/versions?site=${site}`);
+}
+
+export function triggerSiteReport(site) {
+  return fetch(`${BASE}/reports/site/generate?site=${site}`, { method: "POST" }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+    return r.json();
+  });
+}
+
+export function getRoundReport(roundLabel, version) {
+  const qs = new URLSearchParams({ round_label: roundLabel });
+  if (version) qs.set("version", version);
+  return fetchJSON(`${BASE}/reports/round?${qs}`);
+}
+
+export function getRoundReportVersions(roundLabel) {
+  return fetchJSON(`${BASE}/reports/round/versions?round_label=${roundLabel}`);
+}
+
+export function triggerRoundReport(roundLabel, roundStart, roundEnd) {
+  const qs = new URLSearchParams({ round_label: roundLabel, round_start: roundStart, round_end: roundEnd });
+  return fetch(`${BASE}/reports/round/generate?${qs}`, { method: "POST" }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+    return r.json();
+  });
+}

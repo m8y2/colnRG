@@ -1,11 +1,13 @@
 import json
+import threading
 from datetime import datetime, timedelta
 from collections import defaultdict
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from database import get_connection, init_db, get_last_sync
 from sync import run_sync, SITE_CODE_MAP
 from coords import SITE_COORDS, SITE_DOWNSTREAM_ORDER
+from llm_cleanup.report_generator import generate_site_report, generate_round_report
 
 app = FastAPI(title="Coln River Guardians Dashboard API")
 
@@ -486,6 +488,109 @@ def get_site_summary(site: str = Query(..., min_length=1)):
             }
     conn.close()
     return {"site": site, "name": SITE_CODE_MAP.get(site, site), "chemicals": results}
+
+
+# ── Report endpoints ──────────────────────────────────────────────
+
+_generating = {"site": set(), "round": set()}
+
+
+@app.get("/api/reports/site")
+def get_site_report(site: str = Query(...), version: int = Query(None)):
+    conn = get_connection()
+    if version:
+        row = conn.execute(
+            "SELECT * FROM site_reports WHERE site_code = ? AND version = ? ORDER BY generated_at DESC LIMIT 1",
+            (site, version)
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT * FROM site_reports WHERE site_code = ? ORDER BY version DESC LIMIT 1",
+            (site,)
+        ).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(404, f"No report for site {site}")
+    return dict(row)
+
+
+@app.get("/api/reports/site/versions")
+def list_site_report_versions(site: str = Query(...)):
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT id, version, generated_at FROM site_reports WHERE site_code = ? ORDER BY version DESC",
+        (site,)
+    ).fetchall()
+    conn.close()
+    return {"versions": [dict(r) for r in rows]}
+
+
+@app.post("/api/reports/site/generate")
+def trigger_site_report(site: str = Query(...), background_tasks: BackgroundTasks = BackgroundTasks()):
+    if site in _generating["site"]:
+        raise HTTPException(409, f"Report generation already in progress for site {site}")
+    _generating["site"].add(site)
+
+    def generate():
+        try:
+            generate_site_report(site)
+        finally:
+            _generating["site"].discard(site)
+
+    thread = threading.Thread(target=generate, daemon=True)
+    thread.start()
+    return {"status": "started", "site": site}
+
+
+@app.get("/api/reports/round")
+def get_round_report(round_label: str = Query(...), version: int = Query(None)):
+    conn = get_connection()
+    if version:
+        row = conn.execute(
+            "SELECT * FROM round_reports WHERE round_label = ? AND version = ? ORDER BY generated_at DESC LIMIT 1",
+            (round_label, version)
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT * FROM round_reports WHERE round_label = ? ORDER BY version DESC LIMIT 1",
+            (round_label,)
+        ).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(404, f"No report for round {round_label}")
+    return dict(row)
+
+
+@app.get("/api/reports/round/versions")
+def list_round_report_versions(round_label: str = Query(...)):
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT id, version, generated_at FROM round_reports WHERE round_label = ? ORDER BY version DESC",
+        (round_label,)
+    ).fetchall()
+    conn.close()
+    return {"versions": [dict(r) for r in rows]}
+
+
+@app.post("/api/reports/round/generate")
+def trigger_round_report(
+    round_label: str = Query(...),
+    round_start: str = Query(...),
+    round_end: str = Query(...),
+):
+    if round_label in _generating["round"]:
+        raise HTTPException(409, f"Report generation already in progress for round {round_label}")
+    _generating["round"].add(round_label)
+
+    def generate():
+        try:
+            generate_round_report(round_label, round_start, round_end)
+        finally:
+            _generating["round"].discard(round_label)
+
+    thread = threading.Thread(target=generate, daemon=True)
+    thread.start()
+    return {"status": "started", "round": round_label}
 
 
 REFERENCE_LEVELS = {

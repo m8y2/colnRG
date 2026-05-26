@@ -12,6 +12,8 @@ const LocationSeries = lazy(() => import("./components/LocationSeries"));
 const SiteAverages = lazy(() => import("./components/SiteAverages"));
 const DataTable = lazy(() => import("./components/DataTable"));
 const PhotoGallery = lazy(() => import("./components/PhotoGallery"));
+const SiteReport = lazy(() => import("./components/SiteReport"));
+const RoundReport = lazy(() => import("./components/RoundReport"));
 
 export default function App() {
   const [stats, setStats] = useState(null);
@@ -141,6 +143,18 @@ export default function App() {
         >
           Photo Gallery
         </button>
+        <button
+          className={`tab ${tab === "site-report" ? "active" : ""}`}
+          onClick={() => switchTab("site-report")}
+        >
+          Site Report
+        </button>
+        <button
+          className={`tab ${tab === "round-report" ? "active" : ""}`}
+          onClick={() => switchTab("round-report")}
+        >
+          Round Report
+        </button>
       </div>
 
       <main className="tab-content" key={tab}>
@@ -219,6 +233,16 @@ export default function App() {
         {tab === "photos" && (
           <Suspense fallback={<div className="loading">Loading photos...</div>}>
             <PhotoGallery />
+          </Suspense>
+        )}
+        {tab === "site-report" && (
+          <Suspense fallback={<div className="loading">Loading site report...</div>}>
+            <SiteReport />
+          </Suspense>
+        )}
+        {tab === "round-report" && (
+          <Suspense fallback={<div className="loading">Loading round report...</div>}>
+            <RoundReport />
           </Suspense>
         )}
         {tab === "sites" && (
