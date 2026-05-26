@@ -104,22 +104,32 @@ def wait_for_ssh(ip, timeout=120):
 def ensure_ollama(ip, timeout=120):
     start = time.time()
     while time.time() - start < timeout:
-        r = subprocess.run(
+        # Try systemctl first (persists across SSH sessions)
+        r1 = subprocess.run(
             ["ssh", "-o", "StrictHostKeyChecking=no", f"root@{ip}",
-             "curl -s http://localhost:11434/api/tags | head -c 100"],
+             "systemctl is-active ollama 2>/dev/null || ollama serve > /var/log/ollama-serve.log 2>&1 & echo started"],
             capture_output=True, text=True, timeout=10
         )
-        if r.returncode == 0:
-            print(f"  Ollama ready after {time.time() - start:.0f}s")
-            return True
-        if time.time() - start < 30:
-            subprocess.run(
+        # Wait for Ollama to actually respond
+        for _ in range(15):
+            time.sleep(2)
+            r2 = subprocess.run(
                 ["ssh", "-o", "StrictHostKeyChecking=no", f"root@{ip}",
-                 "ollama serve > /dev/null 2>&1 &"],
-                capture_output=True, timeout=5
+                 "curl -s -o /dev/null -w '%{http_code}' http://localhost:11434/api/tags 2>/dev/null || echo 000"],
+                capture_output=True, text=True, timeout=10
             )
-        print(f"  Waiting for Ollama... ({time.time() - start:.0f}s)")
-        time.sleep(10)
+            resp = r2.stdout.strip()
+            if resp == "200":
+                print(f"  Ollama ready after {time.time() - start:.0f}s")
+                # Check model is available
+                r3 = subprocess.run(
+                    ["ssh", "-o", "StrictHostKeyChecking=no", f"root@{ip}",
+                     "ollama list 2>/dev/null | grep -q llama3.2 || ollama pull llama3.2:1b"],
+                    capture_output=True, text=True, timeout=300
+                )
+                return True
+            print(f"  Waiting for Ollama... ({resp}, {time.time() - start:.0f}s)")
+        print(f"  Ollama still not ready after {time.time() - start:.0f}s, retrying...")
     return False
 
 
@@ -248,7 +258,7 @@ def get_site_name(site_code):
     return r[0] if r else site_code
 
 
-def generate_site_report(site_code, progress_callback=None):
+def generate_site_report(site_code, progress_callback=None, ip=None):
     if progress_callback:
         progress_callback(5, "Building site data context")
     site_name = get_site_name(site_code)
@@ -256,10 +266,12 @@ def generate_site_report(site_code, progress_callback=None):
     prompt = SITE_REPORT_PROMPT.format(site_code=site_code, site_name=site_name, entries=entries_text)
     if progress_callback:
         progress_callback(10, "Data context ready")
+    if ip:
+        return run_task_on_droplet(ip, "site", prompt, site_code, progress_callback=progress_callback)['report_text']
     return generate_report("site", prompt, site_code, progress_callback=progress_callback)['report_text']
 
 
-def generate_round_report(round_label, round_start, round_end, progress_callback=None):
+def generate_round_report(round_label, round_start, round_end, progress_callback=None, ip=None):
     if progress_callback:
         progress_callback(5, "Building round data context")
     entries_text, avg_line, prev_line = build_round_data(round_label, round_start, round_end)
@@ -269,10 +281,73 @@ def generate_round_report(round_label, round_start, round_end, progress_callback
     )
     if progress_callback:
         progress_callback(10, "Data context ready")
+    if ip:
+        return run_task_on_droplet(ip, "round", prompt, f"{round_label}|{round_start}|{round_end}", progress_callback=progress_callback)['report_text']
     return generate_report("round", prompt, round_label, progress_callback=progress_callback)['report_text']
 
 
+def run_task_on_droplet(ip, report_type, prompt, identifier, progress_callback=None):
+    """Run a single report generation task on an already-set-up droplet (no SSH/Ollama checks)."""
+    worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_worker.py")
+    request = json.dumps({"type": report_type, "prompt": prompt})
+
+    if progress_callback:
+        progress_callback(45, "Copying data to droplet")
+
+    copy_to_droplet(ip, open(worker_script).read(), "/root/report_worker.py")
+    copy_to_droplet(ip, request, "/root/request.json")
+
+    if progress_callback:
+        progress_callback(55, "Generating report via LLM")
+
+    ret, stdout = run_on_droplet(ip, "cd /root && python3 report_worker.py < request.json > report.txt")
+    if ret != 0:
+        raise RuntimeError(f"Worker exited with code {ret}")
+
+    if progress_callback:
+        progress_callback(85, "Retrieving results")
+
+    report_text = copy_from_droplet(ip, "/root/report.txt")
+    if not report_text.strip():
+        raise RuntimeError("Empty report generated")
+
+    if progress_callback:
+        progress_callback(92, "Saving to database")
+
+    # Store in database
+    conn = get_connection()
+    now = datetime.now(timezone.utc).isoformat()
+    version = None
+    if report_type == "site":
+        row = conn.execute(
+            "SELECT COALESCE(MAX(version), 0) FROM site_reports WHERE site_code = ?",
+            (identifier,)
+        ).fetchone()
+        version = (row[0] or 0) + 1
+        conn.execute(
+            "INSERT INTO site_reports (site_code, generated_at, report_text, version) VALUES (?, ?, ?, ?)",
+            (identifier, now, report_text.strip(), version)
+        )
+    else:
+        parts = identifier.split("|")
+        row = conn.execute(
+            "SELECT COALESCE(MAX(version), 0) FROM round_reports WHERE round_label = ?",
+            (parts[0],)
+        ).fetchone()
+        version = (row[0] or 0) + 1
+        conn.execute(
+            "INSERT INTO round_reports (round_label, round_start, round_end, generated_at, report_text, version) VALUES (?, ?, ?, ?, ?, ?)",
+            (parts[0], parts[1], parts[2], now, report_text.strip(), version)
+        )
+    conn.commit()
+    conn.close()
+
+    print(f"  Stored version {version} for {report_type} report '{identifier}'")
+    return {"report_text": report_text.strip(), "version": version}
+
+
 def generate_report(report_type, prompt, identifier, progress_callback=None):
+    """Standalone: spin droplet, run task, destroy droplet. Used by CLI."""
     worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_worker.py")
     request = json.dumps({"type": report_type, "prompt": prompt})
 
@@ -290,63 +365,8 @@ def generate_report(report_type, prompt, identifier, progress_callback=None):
         if not ensure_ollama(ip):
             raise RuntimeError("Ollama not ready")
 
-        if progress_callback:
-            progress_callback(45, "Ollama ready, copying data")
+        result = run_task_on_droplet(ip, report_type, prompt, identifier, progress_callback=progress_callback)
 
-        # Copy worker script and run
-        copy_to_droplet(ip, open(worker_script).read(), "/root/report_worker.py")
-        copy_to_droplet(ip, request, "/root/request.json")
-
-        if progress_callback:
-            progress_callback(50, "Data copied, generating report")
-
-        ret, stdout = run_on_droplet(ip, "cd /root && python3 report_worker.py < request.json > report.txt")
-        if ret != 0:
-            raise RuntimeError(f"Worker exited with code {ret}")
-
-        if progress_callback:
-            progress_callback(85, "Report generated, retrieving results")
-
-        report_text = copy_from_droplet(ip, "/root/report.txt")
-        if not report_text.strip():
-            raise RuntimeError("Empty report generated")
-
-        if progress_callback:
-            progress_callback(92, "Retrieved results, saving to database")
-
-        # Store in database
-        conn = get_connection()
-        now = datetime.now(timezone.utc).isoformat()
-        version = None
-        if report_type == "site":
-            row = conn.execute(
-                "SELECT COALESCE(MAX(version), 0) FROM site_reports WHERE site_code = ?",
-                (identifier,)
-            ).fetchone()
-            version = (row[0] or 0) + 1
-            conn.execute(
-                "INSERT INTO site_reports (site_code, generated_at, report_text, version) VALUES (?, ?, ?, ?)",
-                (identifier, now, report_text.strip(), version)
-            )
-        else:
-            # round_label, round_start, round_end stored in identifier as "label|start|end"
-            parts = identifier.split("|")
-            row = conn.execute(
-                "SELECT COALESCE(MAX(version), 0) FROM round_reports WHERE round_label = ?",
-                (parts[0],)
-            ).fetchone()
-            version = (row[0] or 0) + 1
-            conn.execute(
-                "INSERT INTO round_reports (round_label, round_start, round_end, generated_at, report_text, version) VALUES (?, ?, ?, ?, ?, ?)",
-                (parts[0], parts[1], parts[2], now, report_text.strip(), version)
-            )
-        conn.commit()
-        conn.close()
-
-        print(f"  Stored version {version} for {report_type} report '{identifier}'")
-        return {"report_text": report_text.strip(), "version": version}
-
-    finally:
         if progress_callback:
             progress_callback(97, "Destroying droplet")
         print(f"Destroying droplet {droplet_id}...")
@@ -354,6 +374,16 @@ def generate_report(report_type, prompt, identifier, progress_callback=None):
             call_do("DELETE", f"/droplets/{droplet_id}")
         except Exception:
             pass
+
+        return result
+
+    except Exception:
+        print(f"Destroying droplet {droplet_id} after error...")
+        try:
+            call_do("DELETE", f"/droplets/{droplet_id}")
+        except Exception:
+            pass
+        raise
 
 
 def main():

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import get_connection, init_db, get_last_sync
 from sync import run_sync, SITE_CODE_MAP
 from coords import SITE_COORDS, SITE_DOWNSTREAM_ORDER
-from llm_cleanup.report_generator import generate_site_report, generate_round_report
+from llm_cleanup.report_generator import generate_site_report, generate_round_report, call_do
 
 app = FastAPI(title="Coln River Guardians Dashboard API")
 
@@ -492,21 +492,127 @@ def get_site_summary(site: str = Query(..., min_length=1)):
 
 # ── Report endpoints ──────────────────────────────────────────────
 
-_generating = {}  # {"site_PW": {"progress": 20, "message": "...", "type": "site", "identifier": "PW"}, ...}
-_generating_lock = threading.Lock()
+_report_queue = []  # list of task dicts: {id, type, identifier, ..., fn}
+_report_queue_lock = threading.Lock()
+_report_droplet = {"id": None, "ip": None}
+_report_worker_busy = False
+_task_progress = {}  # {task_id: {progress, message, type, identifier}}
 
 
-def _set_progress(key, pct, msg):
-    with _generating_lock:
-        if key in _generating:
-            _generating[key]["progress"] = pct
-            _generating[key]["message"] = msg
+def _set_progress(task_id, pct, msg):
+    with _report_queue_lock:
+        if task_id in _task_progress:
+            _task_progress[task_id]["progress"] = pct
+            _task_progress[task_id]["message"] = msg
+
+
+def _destroy_droplet():
+    did = _report_droplet.get("id")
+    if did:
+        print(f"  Destroying droplet {did}...")
+        try:
+            call_do("DELETE", f"/droplets/{did}")
+        except Exception:
+            pass
+    _report_droplet["id"] = None
+    _report_droplet["ip"] = None
+
+
+def _worker_loop():
+    global _report_worker_busy
+    from llm_cleanup.report_generator import spin_up_droplet, wait_for_ssh, ensure_ollama
+
+    while True:
+        with _report_queue_lock:
+            if not _report_queue:
+                _report_worker_busy = False
+                break
+            task = _report_queue[0]
+
+        # Spin up shared droplet on first task
+        if not _report_droplet["id"]:
+            try:
+                _set_progress(task["id"], 10, "Spinning up droplet")
+                did, ip = spin_up_droplet()
+                _report_droplet["id"] = did
+                _report_droplet["ip"] = ip
+                _set_progress(task["id"], 20, "Droplet ready")
+            except Exception as e:
+                _set_progress(task["id"], -1, f"Droplet failed: {e}")
+                with _report_queue_lock:
+                    _report_queue.pop(0)
+                    _task_progress.pop(task["id"], None)
+                import traceback
+                traceback.print_exc()
+                continue
+
+        ip = _report_droplet["ip"]
+
+        # Ensure SSH + Ollama ready (once per droplet lifetime)
+        try:
+            _set_progress(task["id"], 25, "Waiting for SSH")
+            if not wait_for_ssh(ip):
+                raise RuntimeError("SSH timeout")
+            _set_progress(task["id"], 35, "Starting Ollama")
+            if not ensure_ollama(ip):
+                raise RuntimeError("Ollama not ready")
+        except Exception as e:
+            _set_progress(task["id"], -1, f"Setup failed: {e}")
+            _destroy_droplet()
+            with _report_queue_lock:
+                _report_queue.pop(0)
+                _task_progress.pop(task["id"], None)
+            import traceback
+            traceback.print_exc()
+            continue
+
+        # Run the task
+        try:
+            task_fn = task["fn"]
+            task_fn(ip, task["id"])
+            with _report_queue_lock:
+                if task["id"] in _task_progress:
+                    _task_progress[task["id"]]["progress"] = 100
+                    _task_progress[task["id"]]["message"] = "Complete"
+                    _task_progress.pop(task["id"], None)
+                _report_queue.pop(0)
+        except Exception as e:
+            _set_progress(task["id"], -1, str(e))
+            with _report_queue_lock:
+                _report_queue.pop(0)
+                _task_progress.pop(task["id"], None)
+            import traceback
+            traceback.print_exc()
+
+    # Queue empty — destroy droplet
+    _destroy_droplet()
+
+
+def _enqueue_task(task_id, task_type, identifier, task_fn):
+    with _report_queue_lock:
+        _report_queue.append({
+            "id": task_id, "type": task_type, "identifier": identifier, "fn": task_fn,
+        })
+        _task_progress[task_id] = {"progress": 0, "message": "Queued", "type": task_type, "identifier": identifier}
+        if not _report_worker_busy:
+            _report_worker_busy = True
+            thread = threading.Thread(target=_worker_loop, daemon=True)
+            thread.start()
 
 
 @app.get("/api/reports/status")
 def get_report_status():
-    with _generating_lock:
-        return {"running": list(_generating.values())}
+    with _report_queue_lock:
+        return {
+            "running": [
+                {**v, "id": k}
+                for k, v in _task_progress.items()
+            ] + ([
+                {"id": "droplet", "progress": 100, "message": "Droplet active, queue empty",
+                 "type": "infra", "identifier": "droplet"}
+            ] if _report_droplet["id"] and not _report_queue else []),
+            "queue_size": len(_report_queue),
+        }
 
 
 @app.get("/api/reports/site")
@@ -552,28 +658,19 @@ def list_all_site_reports():
 
 @app.post("/api/reports/site/generate")
 def trigger_site_report(site: str = Query(...)):
-    key = f"site_{site}"
-    with _generating_lock:
-        if any(k.startswith("site_") for k in _generating):
-            raise HTTPException(409, "A site report is already being generated")
-        _generating[key] = {"progress": 0, "message": "Queued", "type": "site", "identifier": site, "id": key}
+    from llm_cleanup.report_generator import generate_site_report as _gen_site
+    task_id = f"site_{site}"
 
-    def generate():
-        try:
-            _set_progress(key, 2, "Building data context")
-            generate_site_report(site, progress_callback=lambda p, m: _set_progress(key, p, m))
-            _set_progress(key, 100, "Complete")
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            _set_progress(key, -1, str(e))
-        finally:
-            with _generating_lock:
-                _generating.pop(key, None)
+    with _report_queue_lock:
+        if any(t["id"] == task_id for t in _report_queue):
+            raise HTTPException(409, "A report for this site is already queued or running")
 
-    thread = threading.Thread(target=generate, daemon=True)
-    thread.start()
-    return {"status": "started", "site": site}
+    def task_fn(ip, tid):
+        _set_progress(tid, 40, "Building data context")
+        generate_site_report(site, progress_callback=lambda p, m: _set_progress(tid, 40 + int(p * 0.55), m), ip=ip)
+
+    _enqueue_task(task_id, "site", site, task_fn)
+    return {"status": "queued", "site": site, "task_id": task_id}
 
 
 @app.get("/api/reports/round")
@@ -624,29 +721,21 @@ def trigger_round_report(
     round_start: str = Query(...),
     round_end: str = Query(...),
 ):
-    key = f"round_{round_label}"
-    with _generating_lock:
-        if any(k.startswith("round_") for k in _generating):
-            raise HTTPException(409, "A round report is already being generated")
-        _generating[key] = {"progress": 0, "message": "Queued", "type": "round", "identifier": round_label, "id": key}
+    from llm_cleanup.report_generator import generate_round_report as _gen_round
+    task_id = f"round_{round_label}"
 
-    def generate():
-        try:
-            _set_progress(key, 2, "Building data context")
-            generate_round_report(round_label, round_start, round_end,
-                                  progress_callback=lambda p, m: _set_progress(key, p, m))
-            _set_progress(key, 100, "Complete")
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            _set_progress(key, -1, str(e))
-        finally:
-            with _generating_lock:
-                _generating.pop(key, None)
+    with _report_queue_lock:
+        if any(t["id"] == task_id for t in _report_queue):
+            raise HTTPException(409, "A report for this round is already queued or running")
 
-    thread = threading.Thread(target=generate, daemon=True)
-    thread.start()
-    return {"status": "started", "round": round_label}
+    def task_fn(ip, tid):
+        _set_progress(tid, 40, "Building data context")
+        generate_round_report(round_label, round_start, round_end,
+                              progress_callback=lambda p, m: _set_progress(tid, 40 + int(p * 0.55), m),
+                              ip=ip)
+
+    _enqueue_task(task_id, "round", round_label, task_fn)
+    return {"status": "queued", "round": round_label, "task_id": task_id}
 
 
 REFERENCE_LEVELS = {
