@@ -67,7 +67,22 @@ run.py     Orchestrator script (uses Node 22 at /usr/local/opt/node@22/bin/node)
 | `backend/sync.py` | Full EpiCollect fetch→parse→upsert pipeline |
 | `backend/clean.py` | Numeric parsing utilities (used by both sync and clean_data) |
 | `backend/clean_data.py` | Post-sync cleanup (outlier fixup, text→numeric) |
+| `backend/sync_runner.py` | Oneshot script called by coln-sync.service (init_db + sync + clean) |
 | `frontend/src/api.js` | All API call wrappers |
+
+## Deploy
+
+| | |
+|---|---|
+| **URL** | `http://161.35.168.168/` |
+| **Droplet** | Ubuntu 24.04, 1vCPU/512MB, London |
+| **SSH** | `ssh -i ~/.ssh/id_ed25519 root@161.35.168.168` |
+| **Frontend** | Served by nginx from `/opt/coln-dashboard/frontend/dist/` |
+| **Backend** | FastAPI behind nginx proxy `/api` → `127.0.0.1:8000`, 2 uvicorn workers |
+| **Auto-start** | nginx + coln-api.service + coln-sync.timer (daily 06:00) all systemd-enabled |
+| **Swap** | 1GB swapfile added for `npm run build` (512MB RAM is tight) |
+| **Build locally, rsync** | `npm run build && rsync -e 'ssh -i ~/.ssh/id_ed25519' -avz dist/ root@161.35.168.168:/opt/coln-dashboard/frontend/dist/` |
+| **Re-deploy after changes** | `git push` → `ssh root@161.35.168.168 'cd /opt/coln-dashboard && git pull && systemctl restart coln-api.service'` + rebuild/rsync frontend |
 
 ## No tests
 

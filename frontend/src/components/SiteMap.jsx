@@ -28,7 +28,7 @@ async function attachSummary(popup, code) {
     if (!cached) summaryCache[code] = data;
     const chems = data.chemicals;
     if (Object.keys(chems).length === 0) {
-      el.innerHTML = '<span style="color:#9ca3af">No chemical data.</span>';
+      el.innerHTML = '<span style="color:#6b7280">No chemical data.</span>';
       return;
     }
     let html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem">';
@@ -92,7 +92,7 @@ export default function SiteMap({ sites }) {
       const lblLat = lat;
       const lblLng = lng + 0.008;
       const callout = L.polyline([[lat, lng], [lblLat, lblLng]], {
-        color: "#9ca3af",
+        color: "#6b7280",
         weight: 1.5,
         dashArray: "3 3",
         opacity: 0.7,
@@ -133,7 +133,7 @@ export default function SiteMap({ sites }) {
   return (
     <div className="table-section">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <h3 style={{ margin: 0 }}>Sampling Sites ({sites.length})</h3>
+        <h2 className="chart-section-heading" style={{ margin: 0, marginBottom: 0 }}>Sampling Sites ({sites.length})</h2>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", color: "#374151", cursor: "pointer" }}>
           <input
             type="checkbox"

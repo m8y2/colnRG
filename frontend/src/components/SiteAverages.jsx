@@ -42,8 +42,8 @@ export default function SiteAverages() {
 
   return (
     <div className="chart-section">
-      <h3>Site Averages — {data?.chemical} ({data?.unit})</h3>
-      <p style={{ fontSize: "0.75rem", color: "#9ca3af", marginBottom: 12 }}>
+      <h2 className="chart-section-heading">Site Averages — {data?.chemical} ({data?.unit})</h2>
+      <p style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: 12 }}>
         Mean value per site across all testing rounds.
         {refLevels && " Bars are highlighted in orange when the average exceeds the Moderate reference threshold."}
       </p>

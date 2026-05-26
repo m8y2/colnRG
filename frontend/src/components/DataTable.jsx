@@ -87,7 +87,7 @@ export default function DataTable({ siteFilter, dateFrom, dateTo }) {
 
   return (
     <div className="table-section">
-      <h3>Entries ({data.total} total)</h3>
+      <h2 className="chart-section-heading">Entries ({data.total} total)</h2>
       <table className="data-table">
         <thead>
           <tr>

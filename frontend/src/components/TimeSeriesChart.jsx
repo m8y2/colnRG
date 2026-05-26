@@ -83,7 +83,7 @@ export default function TimeSeriesChart({
   if (data.length === 0) {
     return (
       <div className="chart-section">
-        <h3>{info.label} ({info.unit}) — Testing Rounds</h3>
+        <h2 className="chart-section-heading">{info.label} ({info.unit}) — Testing Rounds</h2>
         <p style={{ color: "#6b7280", textAlign: "center", padding: 24 }}>
           No round data available.
         </p>
@@ -93,16 +93,16 @@ export default function TimeSeriesChart({
 
   return (
     <div className="chart-section">
-      <h3>
+      <h2 className="chart-section-heading">
         {info.label} ({info.unit}) — Testing Rounds
         {siteFilter && <span style={{ fontWeight: 400, fontSize: "0.85rem", color: "#6b7280" }}> — site: {siteFilter}</span>}
       </h3>
-      <p style={{ fontSize: "0.75rem", color: "#9ca3af", marginBottom: 4 }}>
+      <p style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: 4 }}>
         Each round is a cluster of &gt;10 samples taken within 4 days.
         The blue band shows the high/low range across all sites.
       </p>
       {refLevels && (
-        <p style={{ fontSize: "0.75rem", color: "#9ca3af", marginBottom: 8 }}>
+        <p style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: 8 }}>
           Dashed lines show WFD reference levels:&nbsp;
           {REF_LEVEL_LABELS.filter((r) => refLevels[r.key] != null).map((r, i) => (
             <span key={r.key}>

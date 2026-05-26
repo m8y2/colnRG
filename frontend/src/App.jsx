@@ -81,7 +81,7 @@ export default function App() {
       <header className="header">
         <div>
           <h1>Coln River Guardians</h1>
-          <p style={{ color: "#6b7280", fontSize: "0.875rem" }}>
+          <p style={{ color: "#4b5563", fontSize: "0.875rem" }}>
             Water quality monitoring on the River Coln
           </p>
         </div>
@@ -136,7 +136,7 @@ export default function App() {
         </button>
       </div>
 
-      <div className="tab-content" key={tab}>
+      <main className="tab-content" key={tab}>
         {(tab === "chart" || tab === "data") && (
           <div className="filters">
             <label>
@@ -228,7 +228,7 @@ export default function App() {
             {sitesTab === "map" ? <SiteMap sites={sites} /> : <ColnLine />}
           </Suspense>
         )}
-      </div>
+      </main>
     </div>
   );
 }
@@ -243,7 +243,7 @@ function OverviewChart({ chemical, onSwitch }) {
   return (
     <div className="chart-section" style={{ cursor: "pointer" }} onClick={cycle} title="Click to cycle chemicals">
       <TimeSeriesChart chemical={chemical} height={250} />
-      <p style={{ fontSize: "0.7rem", color: "#9ca3af", textAlign: "center", marginTop: 4 }}>
+      <p style={{ fontSize: "0.7rem", color: "#6b7280", textAlign: "center", marginTop: 4 }}>
         Click to cycle through chemicals
       </p>
     </div>
@@ -255,7 +255,7 @@ function ChartView({ siteFilter, dateFrom, dateTo }) {
 
   return (
     <div className="chart-section">
-      <h3>Chemical Time Series</h3>
+      <h2 className="chart-section-heading">Chemical Time Series</h2>
       <div className="chart-controls">
         <label>Chemical:</label>
         <ChemicalSelect value={chemical} onChange={setChemical} />

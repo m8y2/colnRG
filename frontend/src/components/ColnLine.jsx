@@ -103,7 +103,7 @@ export default function ColnLine() {
               </span>
             </div>
             {!chems || Object.keys(chems).length === 0 ? (
-              <p style={{ color: "#9ca3af", margin: 0 }}>No chemical data.</p>
+              <p style={{ color: "#6b7280", margin: 0 }}>No chemical data.</p>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
@@ -124,7 +124,7 @@ export default function ColnLine() {
                 </tbody>
               </table>
             )}
-            <p style={{ fontSize: "0.65rem", color: "#9ca3af", margin: "6px 0 0" }}>
+            <p style={{ fontSize: "0.65rem", color: "#6b7280", margin: "6px 0 0" }}>
               Values in {chems?.phosphate?.unit || "mg/L"}
             </p>
           </div>
@@ -136,7 +136,7 @@ export default function ColnLine() {
   return (
     <div className="table-section" style={{ position: "relative" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <h3 style={{ margin: 0 }}>The Coln Line — Schematic</h3>
+        <h2 className="chart-section-heading" style={{ margin: 0, marginBottom: 0 }}>The Coln Line — Schematic</h2>
       </div>
       <svg viewBox="-100 0 850 1000" style={{ width: "100%", maxWidth: 750, display: "block", margin: "0 auto", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
         <defs>
