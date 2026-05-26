@@ -10,7 +10,7 @@ Workflow:
 6. Insert cleaned entries into SQLite
 7. Destroy droplet
 
-Requires: pip install requests
+Uses stdlib only (urllib, subprocess, json)
 
 Environment variables:
   DO_API_TOKEN=xxx              DigitalOcean personal access token

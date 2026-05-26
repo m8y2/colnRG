@@ -10,6 +10,8 @@ set -euo pipefail
 
 exec > /var/log/llm-setup.log 2>&1
 
+export HOME=/root
+
 echo "=== Installing Ollama ==="
 apt-get update -qq
 apt-get install -y -qq curl
