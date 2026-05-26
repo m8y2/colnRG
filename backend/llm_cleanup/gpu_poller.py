@@ -36,6 +36,7 @@ DROPLET_SNAPSHOT_ID = os.environ.get("DROPLET_SNAPSHOT_ID", "")
 DROPLET_SIZE = os.environ.get("DROPLET_SIZE", "s-2vcpu-4gb-120gb-intel")
 DROPLET_REGION = os.environ.get("DROPLET_REGION", "lon1")
 SSH_KEY_FINGERPRINT = os.environ.get("SSH_KEY_FINGERPRINT", "")
+DO_API = "https://api.digitalocean.com/v2"
 
 
 # Imports from our modules
