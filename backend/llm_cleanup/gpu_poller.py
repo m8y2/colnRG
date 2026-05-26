@@ -28,6 +28,8 @@ import urllib.request
 import urllib.error
 from datetime import datetime, timezone
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 DO_API_TOKEN = os.environ.get("DO_API_TOKEN", "")
 DROPLET_SNAPSHOT_ID = os.environ.get("DROPLET_SNAPSHOT_ID", "")
 DROPLET_SIZE = os.environ.get("DROPLET_SIZE", "s-2vcpu-4gb-120gb-intel")
