@@ -110,6 +110,10 @@ export function getAllRoundReports() {
   return fetchJSON(`${BASE}/reports/round/all`);
 }
 
+export function getReportStatus() {
+  return fetchJSON(`${BASE}/reports/status`);
+}
+
 export function triggerRoundReport(roundLabel, roundStart, roundEnd) {
   const qs = new URLSearchParams({ round_label: roundLabel, round_start: roundStart, round_end: roundEnd });
   return fetch(`${BASE}/reports/round/generate?${qs}`, { method: "POST" }).then((r) => {

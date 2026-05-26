@@ -1,11 +1,36 @@
-import { useState, useEffect, useCallback } from "react";
-import { getRounds, getAllRoundReports, getRoundReport, triggerRoundReport } from "../api";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { getRounds, getAllRoundReports, getRoundReport, triggerRoundReport, getReportStatus } from "../api";
 import { fmtDate } from "../utils";
+
+function ProgressCard({ task }) {
+  const pct = task.progress < 0 ? 0 : task.progress;
+  const barWidth = task.progress < 0 ? 100 : pct;
+  const isError = task.progress < 0;
+  const isComplete = task.progress >= 100;
+  const barColor = isError ? "#dc2626" : isComplete ? "#16a34a" : "#1a56db";
+  return (
+    <div className="report-progress" style={{ marginBottom: 8, padding: "8px 12px", borderRadius: 6, background: isError ? "#fef2f2" : "#f0f4f8" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: "0.85rem" }}>
+        <span><strong>{task.type === "site" ? "Site" : "Round"}:</strong> {task.identifier}</span>
+        <span style={{ color: isError ? "#dc2626" : "#374151" }}>
+          {isError ? "Failed" : isComplete ? "Complete" : `${pct}%`}
+        </span>
+      </div>
+      {!isComplete && (
+        <div style={{ height: 6, background: "#e5e7eb", borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
+          <div style={{ width: `${barWidth}%`, height: "100%", background: barColor, borderRadius: 3, transition: "width 0.5s ease" }} />
+        </div>
+      )}
+      <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>{task.message}</div>
+    </div>
+  );
+}
 
 export default function RoundReport() {
   const [rounds, setRounds] = useState([]);
   const [allReports, setAllReports] = useState([]);
   const [selectedRound, setSelectedRound] = useState("");
+  const [runningTasks, setRunningTasks] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [expanded, setExpanded] = useState(null);
   const [error, setError] = useState("");
@@ -18,6 +43,26 @@ export default function RoundReport() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Poll status every 2s
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const status = await getReportStatus();
+        const roundTasks = (status.running || []).filter((t) => t.type === "round");
+        setRunningTasks(roundTasks);
+        if (generating && roundTasks.length === 0) {
+          const r = await getAllRoundReports();
+          setAllReports(r.reports || []);
+          setGenerating(false);
+          setError("");
+        }
+      } catch {}
+    };
+    poll();
+    const id = setInterval(poll, 2000);
+    return () => clearInterval(id);
+  }, [generating]);
+
   const handleGenerate = async () => {
     if (!selectedRound) return;
     const round = rounds.find((r) => String(r.round) === selectedRound);
@@ -26,22 +71,10 @@ export default function RoundReport() {
     setError("");
     try {
       await triggerRoundReport(`Round ${round.round}`, round.start, round.end);
-      let found = false;
-      for (let i = 0; i < 600; i++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        const reports = await getAllRoundReports();
-        if (reports.reports.length > allReports.length) {
-          found = true;
-          setAllReports(reports.reports || []);
-          break;
-        }
-      }
-      if (!found) setError("Report generation timed out");
-      else setError("");
     } catch (e) {
       setError(e.message);
+      setGenerating(false);
     }
-    setGenerating(false);
   };
 
   const handleView = async (id, roundLabel) => {
@@ -51,6 +84,8 @@ export default function RoundReport() {
       setExpanded({ id, report_text: report.report_text, generated_at: report.generated_at, version: report.version });
     } catch { setExpanded({ id, report_text: "Error loading report", generated_at: "", version: 0 }); }
   };
+
+  const anyRunning = runningTasks.length > 0;
 
   return (
     <div>
@@ -70,11 +105,20 @@ export default function RoundReport() {
               ))}
             </select>
           </label>
-          <button className="sync-btn" onClick={handleGenerate} disabled={generating || !selectedRound}>
-            {generating ? "Generating..." : "Generate"}
+          <button className="sync-btn" onClick={handleGenerate} disabled={generating || anyRunning || !selectedRound}>
+            {generating ? "Starting..." : "Generate"}
           </button>
         </div>
       </div>
+
+      {runningTasks.length > 0 && (
+        <div className="chart-section">
+          <h2 className="chart-section-heading">Generating ({runningTasks.length} running)</h2>
+          {runningTasks.map((t) => (
+            <ProgressCard key={t.id} task={t} />
+          ))}
+        </div>
+      )}
 
       <div className="chart-section">
         <h2 className="chart-section-heading">All Round Reports ({allReports.length})</h2>

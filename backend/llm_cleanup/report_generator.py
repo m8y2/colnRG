@@ -248,48 +248,76 @@ def get_site_name(site_code):
     return r[0] if r else site_code
 
 
-def generate_site_report(site_code):
+def generate_site_report(site_code, progress_callback=None):
+    if progress_callback:
+        progress_callback(5, "Building site data context")
     site_name = get_site_name(site_code)
     entries_text = build_site_data(site_code)
     prompt = SITE_REPORT_PROMPT.format(site_code=site_code, site_name=site_name, entries=entries_text)
-    return generate_report("site", prompt, site_code)
+    if progress_callback:
+        progress_callback(10, "Data context ready")
+    return generate_report("site", prompt, site_code, progress_callback=progress_callback)['report_text']
 
 
-def generate_round_report(round_label, round_start, round_end):
+def generate_round_report(round_label, round_start, round_end, progress_callback=None):
+    if progress_callback:
+        progress_callback(5, "Building round data context")
     entries_text, avg_line, prev_line = build_round_data(round_label, round_start, round_end)
     prompt = ROUND_REPORT_PROMPT.format(
         round_label=round_label, round_start=round_start, round_end=round_end,
         entries=entries_text, averages=avg_line, previous_averages=prev_line,
     )
-    return generate_report("round", prompt, round_label)
+    if progress_callback:
+        progress_callback(10, "Data context ready")
+    return generate_report("round", prompt, round_label, progress_callback=progress_callback)['report_text']
 
 
-def generate_report(report_type, prompt, identifier):
+def generate_report(report_type, prompt, identifier, progress_callback=None):
     worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_worker.py")
     request = json.dumps({"type": report_type, "prompt": prompt})
 
+    if progress_callback:
+        progress_callback(12, "Spinning up droplet")
+
     droplet_id, ip = spin_up_droplet()
     try:
+        if progress_callback:
+            progress_callback(25, "Droplet ready, waiting for SSH")
         if not wait_for_ssh(ip):
             raise RuntimeError("SSH timeout")
+        if progress_callback:
+            progress_callback(35, "SSH connected, waiting for Ollama")
         if not ensure_ollama(ip):
             raise RuntimeError("Ollama not ready")
+
+        if progress_callback:
+            progress_callback(45, "Ollama ready, copying data")
 
         # Copy worker script and run
         copy_to_droplet(ip, open(worker_script).read(), "/root/report_worker.py")
         copy_to_droplet(ip, request, "/root/request.json")
 
+        if progress_callback:
+            progress_callback(50, "Data copied, generating report")
+
         ret, stdout = run_on_droplet(ip, "cd /root && python3 report_worker.py < request.json > report.txt")
         if ret != 0:
             raise RuntimeError(f"Worker exited with code {ret}")
+
+        if progress_callback:
+            progress_callback(85, "Report generated, retrieving results")
 
         report_text = copy_from_droplet(ip, "/root/report.txt")
         if not report_text.strip():
             raise RuntimeError("Empty report generated")
 
+        if progress_callback:
+            progress_callback(92, "Retrieved results, saving to database")
+
         # Store in database
         conn = get_connection()
         now = datetime.now(timezone.utc).isoformat()
+        version = None
         if report_type == "site":
             row = conn.execute(
                 "SELECT COALESCE(MAX(version), 0) FROM site_reports WHERE site_code = ?",
@@ -316,9 +344,11 @@ def generate_report(report_type, prompt, identifier):
         conn.close()
 
         print(f"  Stored version {version} for {report_type} report '{identifier}'")
-        return report_text.strip()
+        return {"report_text": report_text.strip(), "version": version}
 
     finally:
+        if progress_callback:
+            progress_callback(97, "Destroying droplet")
         print(f"Destroying droplet {droplet_id}...")
         try:
             call_do("DELETE", f"/droplets/{droplet_id}")

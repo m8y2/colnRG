@@ -492,7 +492,21 @@ def get_site_summary(site: str = Query(..., min_length=1)):
 
 # ── Report endpoints ──────────────────────────────────────────────
 
-_generating = {"site": set(), "round": set()}
+_generating = {}  # {"site_PW": {"progress": 20, "message": "...", "type": "site", "identifier": "PW"}, ...}
+_generating_lock = threading.Lock()
+
+
+def _set_progress(key, pct, msg):
+    with _generating_lock:
+        if key in _generating:
+            _generating[key]["progress"] = pct
+            _generating[key]["message"] = msg
+
+
+@app.get("/api/reports/status")
+def get_report_status():
+    with _generating_lock:
+        return {"running": list(_generating.values())}
 
 
 @app.get("/api/reports/site")
@@ -537,16 +551,25 @@ def list_all_site_reports():
 
 
 @app.post("/api/reports/site/generate")
-def trigger_site_report(site: str = Query(...), background_tasks: BackgroundTasks = BackgroundTasks()):
-    if site in _generating["site"]:
-        raise HTTPException(409, f"Report generation already in progress for site {site}")
-    _generating["site"].add(site)
+def trigger_site_report(site: str = Query(...)):
+    key = f"site_{site}"
+    with _generating_lock:
+        if any(k.startswith("site_") for k in _generating):
+            raise HTTPException(409, "A site report is already being generated")
+        _generating[key] = {"progress": 0, "message": "Queued", "type": "site", "identifier": site, "id": key}
 
     def generate():
         try:
-            generate_site_report(site)
+            _set_progress(key, 2, "Building data context")
+            generate_site_report(site, progress_callback=lambda p, m: _set_progress(key, p, m))
+            _set_progress(key, 100, "Complete")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            _set_progress(key, -1, str(e))
         finally:
-            _generating["site"].discard(site)
+            with _generating_lock:
+                _generating.pop(key, None)
 
     thread = threading.Thread(target=generate, daemon=True)
     thread.start()
@@ -601,15 +624,25 @@ def trigger_round_report(
     round_start: str = Query(...),
     round_end: str = Query(...),
 ):
-    if round_label in _generating["round"]:
-        raise HTTPException(409, f"Report generation already in progress for round {round_label}")
-    _generating["round"].add(round_label)
+    key = f"round_{round_label}"
+    with _generating_lock:
+        if any(k.startswith("round_") for k in _generating):
+            raise HTTPException(409, "A round report is already being generated")
+        _generating[key] = {"progress": 0, "message": "Queued", "type": "round", "identifier": round_label, "id": key}
 
     def generate():
         try:
-            generate_round_report(round_label, round_start, round_end)
+            _set_progress(key, 2, "Building data context")
+            generate_round_report(round_label, round_start, round_end,
+                                  progress_callback=lambda p, m: _set_progress(key, p, m))
+            _set_progress(key, 100, "Complete")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            _set_progress(key, -1, str(e))
         finally:
-            _generating["round"].discard(round_label)
+            with _generating_lock:
+                _generating.pop(key, None)
 
     thread = threading.Thread(target=generate, daemon=True)
     thread.start()

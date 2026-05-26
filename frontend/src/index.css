@@ -672,3 +672,7 @@ body {
 .report-text p {
   margin-bottom: 12px;
 }
+
+.report-progress {
+  border: 1px solid #e5e7eb;
+}

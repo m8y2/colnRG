@@ -1,15 +1,41 @@
-import { useState, useEffect, useCallback } from "react";
-import { getSites, getAllSiteReports, getSiteReport, triggerSiteReport } from "../api";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { getSites, getAllSiteReports, getSiteReport, triggerSiteReport, getReportStatus } from "../api";
 import { fmtDate } from "../utils";
 import AnimatedSelect from "./AnimatedSelect";
+
+function ProgressCard({ task }) {
+  const pct = task.progress < 0 ? 0 : task.progress;
+  const barWidth = task.progress < 0 ? 100 : pct;
+  const isError = task.progress < 0;
+  const isComplete = task.progress >= 100;
+  const barColor = isError ? "#dc2626" : isComplete ? "#16a34a" : "#1a56db";
+  return (
+    <div className="report-progress" style={{ marginBottom: 8, padding: "8px 12px", borderRadius: 6, background: isError ? "#fef2f2" : "#f0f4f8" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: "0.85rem" }}>
+        <span><strong>{task.type === "site" ? "Site" : "Round"}:</strong> {task.identifier}</span>
+        <span style={{ color: isError ? "#dc2626" : "#374151" }}>
+          {isError ? "Failed" : isComplete ? "Complete" : `${pct}%`}
+        </span>
+      </div>
+      {!isComplete && (
+        <div style={{ height: 6, background: "#e5e7eb", borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
+          <div style={{ width: `${barWidth}%`, height: "100%", background: barColor, borderRadius: 3, transition: "width 0.5s ease" }} />
+        </div>
+      )}
+      <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>{task.message}</div>
+    </div>
+  );
+}
 
 export default function SiteReport() {
   const [sites, setSites] = useState([]);
   const [allReports, setAllReports] = useState([]);
   const [selectedSite, setSelectedSite] = useState("");
+  const [runningTasks, setRunningTasks] = useState([]);
   const [generating, setGenerating] = useState(false);
-  const [expanded, setExpanded] = useState(null); // { id, report_text, versions }
+  const [expanded, setExpanded] = useState(null);
   const [error, setError] = useState("");
+  const pollRef = useRef(null);
 
   const load = useCallback(async () => {
     const [s, r] = await Promise.all([getSites(), getAllSiteReports()]);
@@ -19,29 +45,37 @@ export default function SiteReport() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Poll status every 2s
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const status = await getReportStatus();
+        const siteTasks = (status.running || []).filter((t) => t.type === "site");
+        setRunningTasks(siteTasks);
+        // Refresh reports when no tasks remain (just finished)
+        if (generating && siteTasks.length === 0) {
+          const r = await getAllSiteReports();
+          setAllReports(r.reports || []);
+          setGenerating(false);
+          setError("");
+        }
+      } catch {}
+    };
+    poll();
+    pollRef.current = setInterval(poll, 2000);
+    return () => clearInterval(pollRef.current);
+  }, [generating]);
+
   const handleGenerate = async () => {
     if (!selectedSite) return;
     setGenerating(true);
     setError("");
     try {
       await triggerSiteReport(selectedSite);
-      let found = false;
-      for (let i = 0; i < 600; i++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        const reports = await getAllSiteReports();
-        const existing = reports.reports.filter((rr) => rr.site_code === selectedSite);
-        if (existing.length > (allReports.filter((rr) => rr.site_code === selectedSite).length || 0)) {
-          found = true;
-          setAllReports(reports.reports || []);
-          break;
-        }
-      }
-      if (!found) setError("Report generation timed out");
-      else setError("");
     } catch (e) {
       setError(e.message);
+      setGenerating(false);
     }
-    setGenerating(false);
   };
 
   const handleView = async (id, siteCode) => {
@@ -51,6 +85,9 @@ export default function SiteReport() {
       setExpanded({ id, report_text: report.report_text, generated_at: report.generated_at, version: report.version });
     } catch { setExpanded({ id, report_text: "Error loading report", generated_at: "", version: 0 }); }
   };
+
+  const runningHere = runningTasks.find((t) => t.identifier === selectedSite);
+  const anyRunning = runningTasks.length > 0;
 
   return (
     <div>
@@ -67,11 +104,20 @@ export default function SiteReport() {
               onChange={setSelectedSite}
             />
           </label>
-          <button className="sync-btn" onClick={handleGenerate} disabled={generating || !selectedSite}>
-            {generating ? "Generating..." : "Generate"}
+          <button className="sync-btn" onClick={handleGenerate} disabled={generating || anyRunning || !selectedSite}>
+            {generating ? "Starting..." : "Generate"}
           </button>
         </div>
       </div>
+
+      {runningTasks.length > 0 && (
+        <div className="chart-section">
+          <h2 className="chart-section-heading">Generating ({runningTasks.length} running)</h2>
+          {runningTasks.map((t) => (
+            <ProgressCard key={t.id} task={t} />
+          ))}
+        </div>
+      )}
 
       <div className="chart-section">
         <h2 className="chart-section-heading">All Site Reports ({allReports.length})</h2>
