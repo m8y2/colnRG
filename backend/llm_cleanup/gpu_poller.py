@@ -34,16 +34,9 @@ DROPLET_SIZE = os.environ.get("DROPLET_SIZE", "s-2vcpu-4gb-120gb-intel")
 DROPLET_REGION = os.environ.get("DROPLET_REGION", "lon1")
 SSH_KEY_FINGERPRINT = os.environ.get("SSH_KEY_FINGERPRINT", "")
 
-EPICOLLECT_EXPORT = os.environ.get(
-    "EPICOLLECT_EXPORT",
-    "https://five.epicollect.net/api/export/entries"
-)
-FORM_REF = os.environ.get("FORM_REF", "river-guardians")
 
-DO_API = "https://api.digitalocean.com/v2"
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import PER_PAGE, RATE_LIMIT_DELAY
+# Imports from our modules
+from config import PER_PAGE, RATE_LIMIT_DELAY, EPICOLLECT_EXPORT, FORM_REF
 from database import get_connection, get_last_sync
 from sync import fetch_entries_page, parse_entries, upsert_entries
 
