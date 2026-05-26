@@ -50,14 +50,17 @@ const ICON = L.divIcon({
   iconAnchor: [14, 14],
 });
 
-export default function SiteMap({ sites }) {
+export default function SiteMap({ sites, darkMode }) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const labelsLayer = useRef(null);
   const [showLabels, setShowLabels] = useState(false);
 
   useEffect(() => {
-    if (mapInstance.current) return;
+    if (mapInstance.current) {
+      mapInstance.current.remove();
+      mapInstance.current = null;
+    }
 
     const map = L.map(mapRef.current, {
       center: [51.71, -1.9],
@@ -65,7 +68,11 @@ export default function SiteMap({ sites }) {
       scrollWheelZoom: true,
     });
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+    const tileUrl = darkMode
+      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+
+    L.tileLayer(tileUrl, {
       attribution: "&copy; <a href='https://www.openstreetmap.org/copyright'>OSM</a> &copy; <a href='https://carto.com'>CARTO</a>",
       maxZoom: 18,
     }).addTo(map);
@@ -91,18 +98,18 @@ export default function SiteMap({ sites }) {
 
       const lblLat = lat;
       const lblLng = lng + 0.008;
-      const callout = L.polyline([[lat, lng], [lblLat, lblLng]], {
-        color: "#6b7280",
+      const callout = L.polyline([[lat, lng], [lblLat, lblLng]], { className: "dark-mode-callout" },
+color: "var(--callout-color)"
         weight: 1.5,
         dashArray: "3 3",
         opacity: 0.7,
       });
       group.addLayer(callout);
 
-      const lbl = L.marker([lblLat, lblLng], {
+      const lbl = L.marker([lblLat, lblLng], { className: "dark-mode-label" },
         icon: L.divIcon({
           className: "",
-          html: `<div style="display:inline-block;white-space:nowrap;font-size:11px;font-weight:600;color:#1a56db;background:rgba(255,255,255,0.92);padding:2px 7px;border-radius:4px;border:1px solid #d1d5db;box-shadow:0 1px 3px rgba(0,0,0,0.1)">${site.code} — ${site.name}</div>`,
+          html: `<div style="display:inline-block;white-space:nowrap;font-size:11px;font-weight:600;background:var(--label-bg);padding:2px 7px;border-radius:4px;border:1px solid var(--label-border);box-shadow:0 1px 3px var(--label-shadow)">${site.code} — ${site.name}</div>`,
           iconSize: [0, 0],
           iconAnchor: [0, 14],
         }),
@@ -118,7 +125,7 @@ export default function SiteMap({ sites }) {
       map.remove();
       mapInstance.current = null;
     };
-  }, [sites]);
+  }, [sites, darkMode]);
 
   useEffect(() => {
     const group = labelsLayer.current;

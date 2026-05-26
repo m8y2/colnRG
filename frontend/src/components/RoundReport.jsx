@@ -6,19 +6,19 @@ function ProgressCard({ task }) {
   const pct = task.progress < 0 ? 0 : task.progress;
   const barWidth = task.progress < 0 ? 100 : pct;
   const isError = task.progress < 0;
-  const barColor = isError ? "#dc2626" : "#1a56db";
+  const barColor = isError ? "var(--error)" : "var(--primary)";
   return (
-    <div className="report-progress" style={{ marginBottom: 8, padding: "8px 12px", borderRadius: 6, background: isError ? "#fef2f2" : "#f0f4f8" }}>
+    <div className="report-progress" style={{ marginBottom: 8, padding: "8px 12px", borderRadius: 6, background: isError ? "var(--error-bg)" : "var(--bg)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: "0.85rem" }}>
         <span><strong>{task.identifier}</strong></span>
-        <span style={{ color: isError ? "#dc2626" : "#374151" }}>
+        <span style={{ color: isError ? "var(--error-text)" : "var(--text-secondary)" }}>
           {isError ? "Failed" : `${pct}%`}
         </span>
       </div>
-      <div style={{ height: 6, background: "#e5e7eb", borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
+      <div style={{ height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
         <div style={{ width: `${barWidth}%`, height: "100%", background: barColor, borderRadius: 3, transition: "width 0.5s ease" }} />
       </div>
-      <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>{task.message}</div>
+      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{task.message}</div>
     </div>
   );
 }
@@ -107,7 +107,7 @@ export default function RoundReport() {
 
       {runningTasks.length > 0 && (
         <div className="chart-section">
-          <h2 className="chart-section-heading">Generating ({runningTasks.length} running)</h2>
+          <h2 className="chart-section-heading" style={{ color: "var(--text-primary)" }}>{runningTasks.length > 0 ? `Generating (${runningTasks.length} running)` : "No reports in progress"
           {runningTasks.map((t) => (
             <ProgressCard key={t.id} task={t} />
           ))}
@@ -117,7 +117,7 @@ export default function RoundReport() {
       <div className="chart-section">
         <h2 className="chart-section-heading">All Round Reports ({allReports.length})</h2>
         {allReports.length === 0 ? (
-          <p style={{ color: "#6b7280", padding: 24, textAlign: "center" }}>No reports generated yet.</p>
+          <p style={{ color: "var(--text-muted)", padding: 24, textAlign: "center" }}>No reports generated yet.</p>
         ) : (
           <div>
             <table className="data-table">

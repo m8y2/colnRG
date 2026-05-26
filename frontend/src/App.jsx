@@ -91,7 +91,7 @@ export default function App() {
       <header className="header">
         <div>
           <h1>Coln River Guardians</h1>
-          <p style={{ color: "#4b5563", fontSize: "0.875rem" }}>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
             Water quality monitoring on the River Coln
           </p>
         </div>
