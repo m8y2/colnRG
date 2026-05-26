@@ -95,6 +95,8 @@ export default function App() {
 
       {error && <div className="error">{error}</div>}
 
+      <div className="mobile-notice">Optimised for desktop — works on mobile</div>
+
       <div className="tabs">
         <button
           className={`tab ${tab === "overview" ? "active" : ""}`}

@@ -232,6 +232,10 @@ body {
   margin-bottom: 16px;
 }
 
+.mobile-notice {
+  display: none;
+}
+
 .data-table th.sortable:hover {
   background: #f3f4f6;
 }
@@ -439,12 +443,25 @@ body {
     padding: 6px 12px;
   }
 
+  .mobile-notice {
+    display: block;
+    text-align: center;
+    font-size: 0.7rem;
+    color: #9ca3af;
+    margin-bottom: 12px;
+    padding: 6px 12px;
+    background: #f3f4f6;
+    border-radius: 6px;
+  }
+
   .tabs {
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     flex-wrap: nowrap;
     gap: 0;
     padding-bottom: 0;
+    white-space: nowrap;
   }
 
   .tab {
@@ -511,8 +528,10 @@ body {
 
   .sites-subtabs {
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     flex-wrap: nowrap;
+    white-space: nowrap;
   }
 
   .sites-subtabs .tab {
