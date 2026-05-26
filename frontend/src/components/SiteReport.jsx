@@ -7,21 +7,18 @@ function ProgressCard({ task }) {
   const pct = task.progress < 0 ? 0 : task.progress;
   const barWidth = task.progress < 0 ? 100 : pct;
   const isError = task.progress < 0;
-  const isComplete = task.progress >= 100;
-  const barColor = isError ? "#dc2626" : isComplete ? "#16a34a" : "#1a56db";
+  const barColor = isError ? "#dc2626" : "#1a56db";
   return (
     <div className="report-progress" style={{ marginBottom: 8, padding: "8px 12px", borderRadius: 6, background: isError ? "#fef2f2" : "#f0f4f8" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: "0.85rem" }}>
-        <span><strong>{task.type === "site" ? "Site" : "Round"}:</strong> {task.identifier}</span>
+        <span><strong>{task.identifier}</strong></span>
         <span style={{ color: isError ? "#dc2626" : "#374151" }}>
-          {isError ? "Failed" : isComplete ? "Complete" : `${pct}%`}
+          {isError ? "Failed" : `${pct}%`}
         </span>
       </div>
-      {!isComplete && (
-        <div style={{ height: 6, background: "#e5e7eb", borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
-          <div style={{ width: `${barWidth}%`, height: "100%", background: barColor, borderRadius: 3, transition: "width 0.5s ease" }} />
-        </div>
-      )}
+      <div style={{ height: 6, background: "#e5e7eb", borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
+        <div style={{ width: `${barWidth}%`, height: "100%", background: barColor, borderRadius: 3, transition: "width 0.5s ease" }} />
+      </div>
       <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>{task.message}</div>
     </div>
   );
@@ -32,62 +29,61 @@ export default function SiteReport() {
   const [allReports, setAllReports] = useState([]);
   const [selectedSite, setSelectedSite] = useState("");
   const [runningTasks, setRunningTasks] = useState([]);
-  const [generating, setGenerating] = useState(false);
-  const [expanded, setExpanded] = useState(null);
+  const [viewing, setViewing] = useState(null);
   const [error, setError] = useState("");
-  const pollRef = useRef(null);
+  const prevCount = useRef(0);
 
-  const load = useCallback(async () => {
-    const [s, r] = await Promise.all([getSites(), getAllSiteReports()]);
-    setSites(s);
-    setAllReports(r.reports || []);
+  useEffect(() => {
+    getSites().then((s) => setSites(s));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
-  // Poll status every 2s
+  // Poll status + refresh reports on completion
   useEffect(() => {
-    const poll = async () => {
+    let cancelled = false;
+    const tick = async () => {
       try {
         const status = await getReportStatus();
+        if (cancelled) return;
         const siteTasks = (status.running || []).filter((t) => t.type === "site");
         setRunningTasks(siteTasks);
-        // Refresh reports when no tasks remain (just finished)
-        if (generating && siteTasks.length === 0) {
+        // Detect completion: tasks went from >0 to 0
+        if (prevCount.current > 0 && siteTasks.length === 0) {
           const r = await getAllSiteReports();
-          setAllReports(r.reports || []);
-          setGenerating(false);
-          setError("");
+          if (!cancelled) setAllReports(r.reports || []);
+        }
+        prevCount.current = siteTasks.length;
+
+        // Also update reports list when tasks complete
+        if (siteTasks.length === 0 && prevCount.current > 0) {
+          const r = await getAllSiteReports();
+          if (!cancelled) setAllReports(r.reports || []);
         }
       } catch {}
     };
-    poll();
-    pollRef.current = setInterval(poll, 2000);
-    return () => clearInterval(pollRef.current);
-  }, [generating]);
+    // Initial load of reports
+    getAllSiteReports().then((r) => { if (!cancelled) setAllReports(r.reports || []); });
+    tick();
+    const id = setInterval(tick, 2000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   const handleGenerate = async () => {
     if (!selectedSite) return;
-    setGenerating(true);
     setError("");
     try {
       await triggerSiteReport(selectedSite);
     } catch (e) {
       setError(e.message);
-      setGenerating(false);
     }
   };
 
   const handleView = async (id, siteCode) => {
-    if (expanded?.id === id) { setExpanded(null); return; }
+    if (viewing?.id === id) { setViewing(null); return; }
     try {
       const report = await getSiteReport(siteCode);
-      setExpanded({ id, report_text: report.report_text, generated_at: report.generated_at, version: report.version });
-    } catch { setExpanded({ id, report_text: "Error loading report", generated_at: "", version: 0 }); }
+      setViewing({ id, report_text: report.report_text, generated_at: report.generated_at, version: report.version });
+    } catch { setViewing({ id, report_text: "Error loading report", generated_at: "", version: 0 }); }
   };
-
-  const runningHere = runningTasks.find((t) => t.identifier === selectedSite);
-  const anyRunning = runningTasks.length > 0;
 
   return (
     <div>
@@ -104,8 +100,8 @@ export default function SiteReport() {
               onChange={setSelectedSite}
             />
           </label>
-          <button className="sync-btn" onClick={handleGenerate} disabled={generating || anyRunning || !selectedSite}>
-            {generating ? "Starting..." : "Generate"}
+          <button className="sync-btn" onClick={handleGenerate} disabled={runningTasks.length > 0 || !selectedSite}>
+            Generate
           </button>
         </div>
       </div>
@@ -146,19 +142,19 @@ export default function SiteReport() {
                     </td>
                     <td>
                       <button className="sync-btn" style={{ padding: "4px 10px", fontSize: "0.8rem" }} onClick={() => handleView(r.id, r.site_code)}>
-                        {expanded?.id === r.id ? "Hide" : "View"}
+                        {viewing?.id === r.id ? "Hide" : "View"}
                       </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {expanded && (
+            {viewing && (
               <div className="report-text" style={{ marginTop: 16, borderTop: "1px solid #e5e7eb", paddingTop: 16 }}>
                 <p style={{ fontSize: "0.8rem", color: "#6b7280", marginBottom: 8 }}>
-                  v{expanded.version} — {fmtDate(expanded.generated_at?.slice(0, 10))}
+                  v{viewing.version} — {fmtDate(viewing.generated_at?.slice(0, 10))}
                 </p>
-                {expanded.report_text.split("\n").map((p, i) => (
+                {viewing.report_text.split("\n").map((p, i) => (
                   <p key={i}>{p}</p>
                 ))}
               </div>
