@@ -19,6 +19,7 @@ Environment variables:
   DROPLET_REGION=lon1           Droplet region
 """
 
+import argparse
 import json
 import os
 import subprocess
@@ -186,20 +187,17 @@ def fetch_new_entries():
     return new_entries if new_entries else None
 
 
-def main():
-    if not DO_API_TOKEN:
-        print("DO_API_TOKEN not set", file=sys.stderr)
-        sys.exit(1)
+def fetch_all_entries():
+    conn = get_connection()
+    rows = conn.execute("SELECT * FROM entries ORDER BY id").fetchall()
+    conn.close()
+    entries = [dict(r) for r in rows]
+    for e in entries:
+        e.pop("id", None)
+    return entries if entries else None
 
-    print(f"[{datetime.now(timezone.utc).isoformat()}] Checking for new entries...")
 
-    new_entries = fetch_new_entries()
-    if not new_entries:
-        print("  No new entries found.")
-        return
-
-        print(f"  {len(new_entries)} new entries found, spinning up LLM droplet...")
-
+def run_llm_on_entries(entries, label):
     raw_path = "/tmp/llm_raw_entries.json"
     cleaned_path = "/tmp/llm_cleaned_entries.json"
     remote_raw = "/root/raw_entries.json"
@@ -209,7 +207,7 @@ def main():
     )
 
     with open(raw_path, "w") as f:
-        json.dump(new_entries, f, indent=2)
+        json.dump(entries, f, indent=2)
 
     droplet_id, ip = spin_up_droplet()
 
@@ -235,16 +233,48 @@ def main():
         conn = get_connection()
         added, _ = upsert_entries(cleaned_entries)
         conn.close()
-        print(f"  Inserted {added} cleaned entries into database.")
+        print(f"  {label}: inserted {added} cleaned entries.")
 
     except Exception as e:
         print(f"  Error: {e}", file=sys.stderr)
+        raise
     finally:
         destroy_droplet(droplet_id)
 
     os.remove(raw_path)
     if os.path.exists(cleaned_path):
         os.remove(cleaned_path)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--all", action="store_true",
+                        help="Process ALL existing entries in the database (one-time full cleanup)")
+    args = parser.parse_args()
+
+    if not DO_API_TOKEN:
+        print("DO_API_TOKEN not set", file=sys.stderr)
+        sys.exit(1)
+
+    if args.all:
+        print(f"[{datetime.now(timezone.utc).isoformat()}] Processing ALL entries in database...")
+        entries = fetch_all_entries()
+        if not entries:
+            print("  No entries in database.")
+            return
+        print(f"  {len(entries)} entries found, spinning up LLM droplet...")
+        run_llm_on_entries(entries, "Full dataset")
+        return
+
+    print(f"[{datetime.now(timezone.utc).isoformat()}] Checking for new entries...")
+
+    new_entries = fetch_new_entries()
+    if not new_entries:
+        print("  No new entries found.")
+        return
+
+    print(f"  {len(new_entries)} new entries found, spinning up LLM droplet...")
+    run_llm_on_entries(new_entries, "New entries")
 
 
 if __name__ == "__main__":
