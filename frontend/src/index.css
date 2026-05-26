@@ -1,15 +1,60 @@
+:root {
+  --bg: #f0f4f8;
+  --bg-card: #fff;
+  --text: #1a202c;
+  --text-muted: #4b5563;
+  --text-secondary: #374151;
+  --border: #e5e7eb;
+  --border-light: #d1d5db;
+  --primary: #1a56db;
+  --primary-hover: #1e40af;
+  --hover: #f3f4f6;
+  --error-bg: #fef2f2;
+  --error-text: #dc2626;
+  --input-bg: #fff;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --tabs-border: #e5e7eb;
+  --md-bg: #f3f4f6;
+  --disabled: #6b7280;
+  --primary-bg: #eff6ff;
+  --overlay: rgba(0,0,0,0.85);
+}
+
+.dark {
+  --bg: #0f172a;
+  --bg-card: #1e293b;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-secondary: #cbd5e1;
+  --border: #334155;
+  --border-light: #475569;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --hover: #334155;
+  --error-bg: #3b1a1a;
+  --error-text: #f87171;
+  --input-bg: #1e293b;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --tabs-border: #334155;
+  --md-bg: #334155;
+  --disabled: #475569;
+  --primary-bg: #1e3a5f;
+  --overlay: rgba(0,0,0,0.9);
+}
+
 *,
 *::before,
 *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  background: #f0f4f8;
-  color: #1a202c;
+  background: var(--bg);
+  color: var(--text);
   line-height: 1.5;
 }
 
@@ -29,7 +74,12 @@ body {
 .header h1 {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #1a56db;
+  color: var(--primary);
+}
+
+.header p {
+  color: var(--text-muted);
+  font-size: 0.875rem;
 }
 
 .header-sub {
@@ -39,7 +89,7 @@ body {
 }
 
 .sync-btn {
-  background: #1a56db;
+  background: var(--primary);
   color: #fff;
   border: none;
   padding: 8px 16px;
@@ -49,13 +99,13 @@ body {
 }
 
 .sync-btn:disabled {
-  background: #6b7280;
+  background: var(--disabled);
   cursor: not-allowed;
 }
 
 .last-sync {
   font-size: 0.8rem;
-  color: #4b5563;
+  color: var(--text-muted);
 }
 
 .stats-grid {
@@ -66,15 +116,15 @@ body {
 }
 
 .stat-card {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 10px;
   padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .stat-card .label {
   font-size: 0.8rem;
-  color: #4b5563;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -83,6 +133,7 @@ body {
   font-size: 1.75rem;
   font-weight: 700;
   margin-top: 4px;
+  color: var(--text);
 }
 
 .filters {
@@ -95,10 +146,11 @@ body {
 .filters select,
 .filters input {
   padding: 8px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   font-size: 0.875rem;
-  background: #fff;
+  background: var(--input-bg);
+  color: var(--text);
 }
 
 .filters label {
@@ -106,22 +158,22 @@ body {
   align-items: center;
   gap: 6px;
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .chart-section {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 10px;
   padding: 20px;
   margin-bottom: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .chart-section h2,
 .chart-section-heading {
   font-size: 1rem;
   margin-bottom: 12px;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .chart-controls {
@@ -133,17 +185,17 @@ body {
 }
 
 .table-section {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 10px;
   padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
   overflow-x: auto;
 }
 
 .table-section h3 {
   font-size: 1rem;
   margin-bottom: 12px;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .data-table {
@@ -155,8 +207,8 @@ body {
 .data-table th {
   text-align: left;
   padding: 8px 10px;
-  border-bottom: 2px solid #e5e7eb;
-  color: #4b5563;
+  border-bottom: 2px solid var(--border);
+  color: var(--text-muted);
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -165,12 +217,13 @@ body {
 
 .data-table td {
   padding: 8px 10px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  color: var(--text);
 }
 
 .data-table tr:hover {
-  background: #f9fafb;
+  background: var(--hover);
 }
 
 .pagination {
@@ -180,13 +233,15 @@ body {
   gap: 12px;
   margin-top: 16px;
   font-size: 0.875rem;
+  color: var(--text);
 }
 
 .pagination button {
   padding: 6px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
-  background: #fff;
+  background: var(--bg-card);
+  color: var(--text);
   cursor: pointer;
 }
 
@@ -199,7 +254,7 @@ body {
   display: flex;
   gap: 4px;
   margin-bottom: 24px;
-  border-bottom: 2px solid #e5e7eb;
+  border-bottom: 2px solid var(--tabs-border);
 }
 
 .tab {
@@ -208,26 +263,26 @@ body {
   background: none;
   cursor: pointer;
   font-size: 0.9rem;
-  color: #4b5563;
+  color: var(--text-muted);
   border-bottom: 2px solid transparent;
   margin-bottom: -2px;
 }
 
 .tab.active {
-  color: #1a56db;
-  border-bottom-color: #1a56db;
+  color: var(--primary);
+  border-bottom-color: var(--primary);
   font-weight: 600;
 }
 
 .loading {
   text-align: center;
   padding: 48px;
-  color: #4b5563;
+  color: var(--text-muted);
 }
 
 .error {
-  background: #fef2f2;
-  color: #dc2626;
+  background: var(--error-bg);
+  color: var(--error-text);
   padding: 12px 16px;
   border-radius: 6px;
   margin-bottom: 16px;
@@ -238,12 +293,12 @@ body {
 }
 
 .data-table th.sortable:hover {
-  background: #f3f4f6;
+  background: var(--hover);
 }
 
 .data-table th.sorted-asc,
 .data-table th.sorted-desc {
-  color: #1a56db;
+  color: var(--primary);
 }
 
 .sort-arrow {
@@ -261,31 +316,32 @@ body {
   justify-content: space-between;
   gap: 24px;
   padding: 8px 14px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-light);
   border-radius: 8px;
-  background: #fff;
+  background: var(--input-bg);
   font-size: 0.875rem;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   cursor: pointer;
   min-width: 160px;
   transition: border-color 0.15s, box-shadow 0.15s;
+  color: var(--text);
 }
 
 .chemical-select-trigger:hover {
-  border-color: #9ca3af;
+  border-color: var(--text-muted);
 }
 
 .chemical-select-trigger:focus,
 .chemical-select-trigger:focus-visible {
   outline: none;
-  border-color: #1a56db;
-  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
 .chemical-select-arrow {
   font-size: 1rem;
   transition: transform 0.2s ease;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .chemical-select-arrow.open {
@@ -297,8 +353,8 @@ body {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   opacity: 0;
@@ -327,22 +383,23 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   cursor: pointer;
   transition: background 0.1s;
+  color: var(--text);
 }
 
 .chemical-select-item:hover {
-  background: #f3f4f6;
+  background: var(--hover);
 }
 
 .sites-subtabs {
   display: flex;
   gap: 4px;
   margin-bottom: 16px;
-  border-bottom: 2px solid #e5e7eb;
+  border-bottom: 2px solid var(--tabs-border);
 }
 
 .chemical-select-item.active {
-  background: #eff6ff;
-  color: #1a56db;
+  background: var(--primary-bg);
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -448,10 +505,10 @@ body {
     display: block;
     text-align: center;
     font-size: 0.7rem;
-    color: #6b7280;
+    color: var(--text-muted);
     margin-bottom: 12px;
     padding: 6px 12px;
-    background: #f3f4f6;
+    background: var(--md-bg);
     border-radius: 6px;
   }
 
@@ -555,7 +612,7 @@ body {
   border-radius: 8px;
   cursor: pointer;
   position: relative;
-  background: #e2e8f0;
+  background: var(--md-bg);
 }
 
 .photo-tile img {
@@ -586,7 +643,7 @@ body {
 .photo-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: var(--overlay);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -657,15 +714,16 @@ body {
 
 .report-version-select select {
   padding: 8px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   font-size: 0.875rem;
-  background: #fff;
+  background: var(--input-bg);
+  color: var(--text);
 }
 
 .report-text {
   line-height: 1.7;
-  color: #374151;
+  color: var(--text-secondary);
   max-width: 800px;
 }
 
@@ -674,5 +732,43 @@ body {
 }
 
 .report-progress {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
+}
+
+/* ── Dark mode toggle ──────────────────────────────────── */
+
+.theme-toggle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  background: var(--hover);
+}
+
+/* ── Recharts text color in dark mode ──────────────────── */
+.dark .recharts-text {
+  fill: var(--text-muted) !important;
+}
+
+.dark .recharts-cartesian-axis-tick-value {
+  fill: var(--text-muted) !important;
+}
+
+.dark .recharts-legend-item-text {
+  color: var(--text-muted) !important;
+}
+
+.dark .recharts-tooltip-label {
+  color: var(--text) !important;
 }

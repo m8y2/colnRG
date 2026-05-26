@@ -27,6 +27,13 @@ export default function App() {
   const [overviewChemical, setOverviewChemical] = useState("phosphate");
   const [sitesTab, setSitesTab] = useState("map");
   const [error, setError] = useState("");
+  const [isDark, setIsDark] = useState(() => window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false);
+
+  useEffect(() => {
+    document.body.classList.toggle("dark", isDark);
+  }, [isDark]);
+
+  const toggleTheme = () => setIsDark((d) => !d);
 
   const switchTab = (t) => {
     setTab(t);
@@ -92,6 +99,9 @@ export default function App() {
           <span className="last-sync">Last sync: {lastSync}</span>
           <button className="sync-btn" onClick={handleSync} disabled={syncing}>
             {syncing ? "Syncing..." : "Sync Now"}
+          </button>
+          <button className="theme-toggle" onClick={toggleTheme} title={isDark ? "Switch to light mode" : "Switch to dark mode"}>
+            {isDark ? "\u2600" : "\u263E"}
           </button>
         </div>
       </header>

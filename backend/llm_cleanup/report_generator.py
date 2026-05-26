@@ -31,7 +31,7 @@ DO_API = "https://api.digitalocean.com/v2"
 
 from config import PER_PAGE, RATE_LIMIT_DELAY
 from database import get_connection
-from llm_cleanup.report_prompts import SITE_REPORT_PROMPT, ROUND_REPORT_PROMPT
+from llm_cleanup.report_prompts import COLN_FACTFILE, SITE_ORDER_TEXT, SITE_REPORT_PROMPT, ROUND_REPORT_PROMPT
 
 
 def do_headers():
@@ -260,7 +260,7 @@ def generate_site_report(site_code, progress_callback=None, ip=None):
         progress_callback(5, "Building site data context")
     site_name = get_site_name(site_code)
     entries_text = build_site_data(site_code)
-    prompt = SITE_REPORT_PROMPT.format(site_code=site_code, site_name=site_name, entries=entries_text)
+    prompt = SITE_REPORT_PROMPT.format(site_code=site_code, site_name=site_name, entries=entries_text, factfile=COLN_FACTFILE, site_order=SITE_ORDER_TEXT)
     if progress_callback:
         progress_callback(10, "Data context ready")
     if ip:
@@ -275,6 +275,7 @@ def generate_round_report(round_label, round_start, round_end, progress_callback
     prompt = ROUND_REPORT_PROMPT.format(
         round_label=round_label, round_start=round_start, round_end=round_end,
         entries=entries_text, averages=avg_line, previous_averages=prev_line,
+        factfile=COLN_FACTFILE, site_order=SITE_ORDER_TEXT,
     )
     if progress_callback:
         progress_callback(10, "Data context ready")
