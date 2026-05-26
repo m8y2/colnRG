@@ -96,7 +96,7 @@ export default function TimeSeriesChart({
       <h2 className="chart-section-heading">
         {info.label} ({info.unit}) — Testing Rounds
         {siteFilter && <span style={{ fontWeight: 400, fontSize: "0.85rem", color: "#6b7280" }}> — site: {siteFilter}</span>}
-      </h3>
+      </h2>
       <p style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: 4 }}>
         Each round is a cluster of &gt;10 samples taken within 4 days.
         The blue band shows the high/low range across all sites.
