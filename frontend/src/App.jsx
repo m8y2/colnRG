@@ -115,13 +115,13 @@ export default function App() {
           Site Averages
         </button>
         <button
-          className={`tab ${tab === "location-series" ? "active" : ""}`}
+          className={`tab hide-mobile ${tab === "location-series" ? "active" : ""}`}
           onClick={() => switchTab("location-series")}
         >
           Location Series
         </button>
         <button
-          className={`tab ${tab === "sites" ? "active" : ""}`}
+          className={`tab hide-mobile ${tab === "sites" ? "active" : ""}`}
           onClick={() => switchTab("sites")}
         >
           Sites
