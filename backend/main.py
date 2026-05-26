@@ -525,6 +525,17 @@ def list_site_report_versions(site: str = Query(...)):
     return {"versions": [dict(r) for r in rows]}
 
 
+@app.get("/api/reports/site/all")
+def list_all_site_reports():
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT id, site_code, version, generated_at, substr(report_text, 1, 200) as preview "
+        "FROM site_reports ORDER BY generated_at DESC"
+    ).fetchall()
+    conn.close()
+    return {"reports": [dict(r) for r in rows]}
+
+
 @app.post("/api/reports/site/generate")
 def trigger_site_report(site: str = Query(...), background_tasks: BackgroundTasks = BackgroundTasks()):
     if site in _generating["site"]:
@@ -570,6 +581,18 @@ def list_round_report_versions(round_label: str = Query(...)):
     ).fetchall()
     conn.close()
     return {"versions": [dict(r) for r in rows]}
+
+
+@app.get("/api/reports/round/all")
+def list_all_round_reports():
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT id, round_label, round_start, round_end, version, generated_at, "
+        "substr(report_text, 1, 200) as preview "
+        "FROM round_reports ORDER BY generated_at DESC"
+    ).fetchall()
+    conn.close()
+    return {"reports": [dict(r) for r in rows]}
 
 
 @app.post("/api/reports/round/generate")

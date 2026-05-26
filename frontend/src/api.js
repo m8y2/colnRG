@@ -85,6 +85,10 @@ export function getSiteReportVersions(site) {
   return fetchJSON(`${BASE}/reports/site/versions?site=${site}`);
 }
 
+export function getAllSiteReports() {
+  return fetchJSON(`${BASE}/reports/site/all`);
+}
+
 export function triggerSiteReport(site) {
   return fetch(`${BASE}/reports/site/generate?site=${site}`, { method: "POST" }).then((r) => {
     if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
@@ -100,6 +104,10 @@ export function getRoundReport(roundLabel, version) {
 
 export function getRoundReportVersions(roundLabel) {
   return fetchJSON(`${BASE}/reports/round/versions?round_label=${roundLabel}`);
+}
+
+export function getAllRoundReports() {
+  return fetchJSON(`${BASE}/reports/round/all`);
 }
 
 export function triggerRoundReport(roundLabel, roundStart, roundEnd) {
