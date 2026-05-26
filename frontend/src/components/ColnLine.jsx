@@ -97,7 +97,7 @@ export default function ColnLine() {
               <strong style={{ fontSize: "0.9rem" }}>{popup.site} — {popup.name}</strong>
               <span
                 onClick={() => setPopup(null)}
-                style={{ cursor: "pointer", color: "#6b7280", fontSize: "1.1rem", lineHeight: 1 }}
+                style={{ cursor: "pointer", color: "#4b5563", fontSize: "1.1rem", lineHeight: 1 }}
               >
                 ×
               </span>
@@ -173,7 +173,7 @@ export default function ColnLine() {
                 <text x={tx} y={y + 5} textAnchor={ta} fill="#1a56db" fontSize={13} fontWeight={700}>
                   {site.code}
                 </text>
-                <text x={tx} y={y - 10} textAnchor={ta} fill="#6b7280" fontSize={10}>
+                <text x={tx} y={y - 10} textAnchor={ta} fill="#4b5563" fontSize={10}>
                   {site.name}
                 </text>
                 <line

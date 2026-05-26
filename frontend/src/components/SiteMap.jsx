@@ -14,7 +14,7 @@ function buildPopupHtml(site) {
   return `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-width:180px">
       <strong style="font-size:0.95rem">${site.code} — ${site.name}</strong>
-      <div id="summary-${site.code}" style="margin-top:8px;font-size:0.8rem;color:#6b7280">Loading…</div>
+      <div id="summary-${site.code}" style="margin-top:8px;font-size:0.8rem;color:#4b5563">Loading…</div>
     </div>
   `;
 }
@@ -32,7 +32,7 @@ async function attachSummary(popup, code) {
       return;
     }
     let html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem">';
-    html += '<tr style="color:#6b7280;border-bottom:1px solid #e5e7eb"><th style="text-align:left;padding:2px 6px">Chemical</th><th style="text-align:right;padding:2px 6px">Mean</th><th style="text-align:right;padding:2px 6px">Max</th></tr>';
+    html += '<tr style="color:#4b5563;border-bottom:1px solid #e5e7eb"><th style="text-align:left;padding:2px 6px">Chemical</th><th style="text-align:right;padding:2px 6px">Mean</th><th style="text-align:right;padding:2px 6px">Max</th></tr>';
     for (const [chem, info] of Object.entries(chems)) {
       html += `<tr style="border-bottom:1px solid #f3f4f6"><td style="padding:2px 6px;font-weight:500">${chem}</td><td style="padding:2px 6px;text-align:right">${info.mean}</td><td style="padding:2px 6px;text-align:right">${info.max}</td></tr>`;
     }

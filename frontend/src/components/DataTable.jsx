@@ -115,7 +115,7 @@ export default function DataTable({ siteFilter, dateFrom, dateTo }) {
           ))}
           {sorted.length === 0 && (
             <tr>
-              <td colSpan={COLS.length} style={{ textAlign: "center", padding: 24, color: "#6b7280" }}>
+              <td colSpan={COLS.length} style={{ textAlign: "center", padding: 24, color: "#4b5563" }}>
                 No entries found.
               </td>
             </tr>

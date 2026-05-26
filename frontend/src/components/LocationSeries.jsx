@@ -86,7 +86,7 @@ export default function LocationSeries({ sites }) {
                 value: data?.unit || "",
                 angle: -90,
                 position: "insideLeft",
-                style: { fontSize: 11, fill: "#6b7280" },
+                style: { fontSize: 11, fill: "#4b5563" },
               }}
             />
             <Tooltip
@@ -98,14 +98,14 @@ export default function LocationSeries({ sites }) {
                 <ReferenceLine
                   key={label}
                   y={val}
-                  stroke={REF_COLORS[label] || "#6b7280"}
+                  stroke={REF_COLORS[label] || "#4b5563"}
                   strokeDasharray="6 4"
                   strokeWidth={1.5}
                   label={{
                     value: `${label} (${val})`,
                     position: "right",
                     fontSize: 10,
-                    fill: REF_COLORS[label] || "#6b7280",
+                    fill: REF_COLORS[label] || "#4b5563",
                   }}
                 />
               ))}
@@ -113,7 +113,7 @@ export default function LocationSeries({ sites }) {
           </BarChart>
         </ResponsiveContainer>
       ) : (
-        <p style={{ color: "#6b7280", textAlign: "center", padding: 24 }}>
+        <p style={{ color: "#4b5563", textAlign: "center", padding: 24 }}>
           No data for this round.
         </p>
       )}

@@ -84,7 +84,7 @@ export default function TimeSeriesChart({
     return (
       <div className="chart-section">
         <h2 className="chart-section-heading">{info.label} ({info.unit}) — Testing Rounds</h2>
-        <p style={{ color: "#6b7280", textAlign: "center", padding: 24 }}>
+        <p style={{ color: "#4b5563", textAlign: "center", padding: 24 }}>
           No round data available.
         </p>
       </div>
@@ -95,7 +95,7 @@ export default function TimeSeriesChart({
     <div className="chart-section">
       <h2 className="chart-section-heading">
         {info.label} ({info.unit}) — Testing Rounds
-        {siteFilter && <span style={{ fontWeight: 400, fontSize: "0.85rem", color: "#6b7280" }}> — site: {siteFilter}</span>}
+        {siteFilter && <span style={{ fontWeight: 400, fontSize: "0.85rem", color: "#4b5563" }}> — site: {siteFilter}</span>}
       </h2>
       <p style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: 4 }}>
         Each round is a cluster of &gt;10 samples taken within 4 days.
@@ -132,7 +132,7 @@ export default function TimeSeriesChart({
               value: info.unit,
               angle: -90,
               position: "insideLeft",
-              style: { fontSize: 11, fill: "#6b7280" },
+              style: { fontSize: 11, fill: "#4b5563" },
             }}
           />
           <Tooltip
@@ -147,14 +147,14 @@ export default function TimeSeriesChart({
               <ReferenceLine
                 key={label}
                 y={val}
-                stroke={REF_COLORS[label] || "#6b7280"}
+                stroke={REF_COLORS[label] || "#4b5563"}
                 strokeDasharray="6 4"
                 strokeWidth={1.5}
                 label={{
                   value: `${label} (${val})`,
                   position: "right",
                   fontSize: 10,
-                  fill: REF_COLORS[label] || "#6b7280",
+                  fill: REF_COLORS[label] || "#4b5563",
                 }}
               />
             ))}
