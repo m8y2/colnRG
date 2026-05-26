@@ -25,10 +25,7 @@ export default function SiteAverages() {
 
   const refLevels = data?.reference_levels;
 
-  const { thresholds, maxThreshold } = useMemo(() => {
-    const t = refLevels ? Object.values(refLevels).filter((v) => v != null) : [];
-    return { thresholds: t, maxThreshold: t.length > 0 ? Math.max(...t) : Infinity };
-  }, [refLevels]);
+  const poorThreshold = refLevels?.Poor ?? null;
 
   const chartData = useMemo(
     () => (data?.sites || []).map((s) => ({
@@ -36,9 +33,9 @@ export default function SiteAverages() {
       value: s.mean,
       name: s.name,
       count: s.count,
-      intense: s.mean > maxThreshold,
+      overPoor: poorThreshold != null && s.mean > poorThreshold,
     })),
-    [data, maxThreshold]
+    [data, poorThreshold]
   );
 
   if (loading) return <div className="loading">Loading site averages...</div>;
@@ -98,8 +95,8 @@ export default function SiteAverages() {
               {chartData.map((entry) => (
                 <Cell
                   key={entry.site}
-                  fill={entry.intense ? "#ef4444" : entry.value > (thresholds[thresholds.length - 2] || 0) ? "#f59e0b" : "#3b82f6"}
-                  fillOpacity={entry.intense ? 0.85 : 0.7}
+                  fill={entry.overPoor ? "#f97316" : "#3b82f6"}
+                  fillOpacity={entry.overPoor ? 0.85 : 0.7}
                 />
               ))}
             </Bar>
