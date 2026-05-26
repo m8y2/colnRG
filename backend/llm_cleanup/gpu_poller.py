@@ -19,7 +19,6 @@ Environment variables:
   DROPLET_REGION=lon1           Droplet region
 """
 
-import argparse
 import json
 import os
 import subprocess
@@ -202,16 +201,6 @@ def fetch_new_entries():
     return new_entries if new_entries else None
 
 
-def fetch_all_entries():
-    conn = get_connection()
-    rows = conn.execute("SELECT * FROM entries ORDER BY id").fetchall()
-    conn.close()
-    entries = [dict(r) for r in rows]
-    for e in entries:
-        e.pop("id", None)
-    return entries if entries else None
-
-
 def run_llm_on_entries(entries, label):
     raw_path = "/tmp/llm_raw_entries.json"
     cleaned_path = "/tmp/llm_cleaned_entries.json"
@@ -270,24 +259,9 @@ def run_llm_on_entries(entries, label):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--all", action="store_true",
-                        help="Process ALL existing entries in the database (one-time full cleanup)")
-    args = parser.parse_args()
-
     if not DO_API_TOKEN:
         print("DO_API_TOKEN not set", file=sys.stderr)
         sys.exit(1)
-
-    if args.all:
-        print(f"[{datetime.now(timezone.utc).isoformat()}] Processing ALL entries in database...")
-        entries = fetch_all_entries()
-        if not entries:
-            print("  No entries in database.")
-            return
-        print(f"  {len(entries)} entries found, spinning up LLM droplet...")
-        run_llm_on_entries(entries, "Full dataset")
-        return
 
     print(f"[{datetime.now(timezone.utc).isoformat()}] Checking for new entries...")
 
