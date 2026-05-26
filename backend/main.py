@@ -110,6 +110,19 @@ def get_entries(
     }
 
 
+@app.get("/api/photos")
+def get_photos():
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT ec5_uuid, sample_date, w3w_site_code, w3w, photo_url, photo_desc, photo_2_url "
+        "FROM entries WHERE (photo_url IS NOT NULL AND photo_url != '') "
+        "OR (photo_2_url IS NOT NULL AND photo_2_url != '') "
+        "ORDER BY sample_date DESC"
+    ).fetchall()
+    conn.close()
+    return {"photos": [dict(r) for r in rows]}
+
+
 @app.get("/api/sites")
 def get_sites():
     conn = get_connection()

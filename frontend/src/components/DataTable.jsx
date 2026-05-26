@@ -14,8 +14,6 @@ const COLS = [
   { key: "turbidity", label: "Turbidity" },
   { key: "dissolved_oxygen", label: "DO" },
   { key: "conductivity", label: "Conductivity" },
-  { key: "phosphate_high", label: "PO₄ High?" },
-  { key: "nitrate_high", label: "NO₃ High?" },
   { key: "landowner", label: "Landowner" },
 ];
 

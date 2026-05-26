@@ -68,3 +68,7 @@ export function getSiteAverages(chemical) {
 export function getSiteSummary(site) {
   return fetchJSON(`${BASE}/site-summary?site=${site}`);
 }
+
+export function getPhotos() {
+  return fetchJSON(`${BASE}/photos`);
+}

@@ -11,6 +11,7 @@ const TimeSeriesChart = lazy(() => import("./components/TimeSeriesChart"));
 const LocationSeries = lazy(() => import("./components/LocationSeries"));
 const SiteAverages = lazy(() => import("./components/SiteAverages"));
 const DataTable = lazy(() => import("./components/DataTable"));
+const PhotoGallery = lazy(() => import("./components/PhotoGallery"));
 
 export default function App() {
   const [stats, setStats] = useState(null);
@@ -134,6 +135,12 @@ export default function App() {
         >
           Data Table
         </button>
+        <button
+          className={`tab ${tab === "photos" ? "active" : ""}`}
+          onClick={() => switchTab("photos")}
+        >
+          Photos
+        </button>
       </div>
 
       <main className="tab-content" key={tab}>
@@ -207,6 +214,11 @@ export default function App() {
         {tab === "site-averages" && (
           <Suspense fallback={<div className="loading">Loading site averages...</div>}>
             <SiteAverages />
+          </Suspense>
+        )}
+        {tab === "photos" && (
+          <Suspense fallback={<div className="loading">Loading photos...</div>}>
+            <PhotoGallery />
           </Suspense>
         )}
         {tab === "sites" && (
