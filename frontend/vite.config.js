@@ -3,7 +3,6 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   esbuild: {
     jsx: 'automatic',
-    jsxDev: true,
   },
   server: {
     host: "0.0.0.0",
