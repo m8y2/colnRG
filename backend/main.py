@@ -589,6 +589,7 @@ def _worker_loop():
 
 
 def _enqueue_task(task_id, task_type, identifier, task_fn):
+    global _report_worker_busy
     with _report_queue_lock:
         _report_queue.append({
             "id": task_id, "type": task_type, "identifier": identifier, "fn": task_fn,
