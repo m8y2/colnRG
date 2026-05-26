@@ -104,29 +104,27 @@ def wait_for_ssh(ip, timeout=120):
 def ensure_ollama(ip, timeout=120):
     start = time.time()
     while time.time() - start < timeout:
-        # Try systemctl first (persists across SSH sessions)
         r1 = subprocess.run(
             ["ssh", "-o", "StrictHostKeyChecking=no", f"root@{ip}",
-             "systemctl is-active ollama 2>/dev/null || ollama serve > /var/log/ollama-serve.log 2>&1 & echo started"],
-            capture_output=True, text=True, timeout=10
+             "systemctl is-active ollama 2>/dev/null || nohup ollama serve > /var/log/ollama-serve.log 2>&1 & echo started"],
+            capture_output=True, text=True, timeout=30
         )
-        # Wait for Ollama to actually respond
         for _ in range(15):
             time.sleep(2)
             r2 = subprocess.run(
                 ["ssh", "-o", "StrictHostKeyChecking=no", f"root@{ip}",
                  "curl -s -o /dev/null -w '%{http_code}' http://localhost:11434/api/tags 2>/dev/null || echo 000"],
-                capture_output=True, text=True, timeout=10
+                capture_output=True, text=True, timeout=15
             )
             resp = r2.stdout.strip()
             if resp == "200":
                 print(f"  Ollama ready after {time.time() - start:.0f}s")
-                # Check model is available
                 r3 = subprocess.run(
                     ["ssh", "-o", "StrictHostKeyChecking=no", f"root@{ip}",
                      "ollama list 2>/dev/null | grep -q llama3.2 || ollama pull llama3.2:1b"],
                     capture_output=True, text=True, timeout=300
                 )
+                print(f"  Model check done at {time.time() - start:.0f}s")
                 return True
             print(f"  Waiting for Ollama... ({resp}, {time.time() - start:.0f}s)")
         print(f"  Ollama still not ready after {time.time() - start:.0f}s, retrying...")

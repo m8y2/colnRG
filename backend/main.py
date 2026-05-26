@@ -495,6 +495,7 @@ def get_site_summary(site: str = Query(..., min_length=1)):
 _report_queue = []  # list of task dicts: {id, type, identifier, ..., fn}
 _report_queue_lock = threading.Lock()
 _report_droplet = {"id": None, "ip": None}
+_report_droplet_ready = False
 _report_worker_busy = False
 _task_progress = {}  # {task_id: {progress, message, type, identifier}}
 
@@ -507,6 +508,7 @@ def _set_progress(task_id, pct, msg):
 
 
 def _destroy_droplet():
+    global _report_droplet_ready
     did = _report_droplet.get("id")
     if did:
         print(f"  Destroying droplet {did}...")
@@ -516,10 +518,11 @@ def _destroy_droplet():
             pass
     _report_droplet["id"] = None
     _report_droplet["ip"] = None
+    _report_droplet_ready = False
 
 
 def _worker_loop():
-    global _report_worker_busy
+    global _report_worker_busy, _report_droplet_ready
     from llm_cleanup.report_generator import spin_up_droplet, wait_for_ssh, ensure_ollama
 
     while True:
@@ -549,22 +552,24 @@ def _worker_loop():
         ip = _report_droplet["ip"]
 
         # Ensure SSH + Ollama ready (once per droplet lifetime)
-        try:
-            _set_progress(task["id"], 25, "Waiting for SSH")
-            if not wait_for_ssh(ip):
-                raise RuntimeError("SSH timeout")
-            _set_progress(task["id"], 35, "Starting Ollama")
-            if not ensure_ollama(ip):
-                raise RuntimeError("Ollama not ready")
-        except Exception as e:
-            _set_progress(task["id"], -1, f"Setup failed: {e}")
-            _destroy_droplet()
-            with _report_queue_lock:
-                _report_queue.pop(0)
-                _task_progress.pop(task["id"], None)
-            import traceback
-            traceback.print_exc()
-            continue
+        if not _report_droplet_ready:
+            try:
+                _set_progress(task["id"], 25, "Waiting for SSH")
+                if not wait_for_ssh(ip):
+                    raise RuntimeError("SSH timeout")
+                _set_progress(task["id"], 35, "Starting Ollama")
+                if not ensure_ollama(ip):
+                    raise RuntimeError("Ollama not ready")
+                _report_droplet_ready = True
+            except Exception as e:
+                _set_progress(task["id"], -1, f"Setup failed: {e}")
+                _destroy_droplet()
+                with _report_queue_lock:
+                    _report_queue.pop(0)
+                    _task_progress.pop(task["id"], None)
+                import traceback
+                traceback.print_exc()
+                continue
 
         # Run the task
         try:
