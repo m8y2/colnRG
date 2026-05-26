@@ -5,6 +5,7 @@ import urllib.request
 from datetime import datetime, timezone
 from database import get_connection, get_last_sync
 from clean import clean_numeric
+from w3w_sites import lookup_w3w_site
 from config import (
     EPICOLLECT_EXPORT, EPICOLLECT_PROJECT, FORM_REF,
     PER_PAGE, RATE_LIMIT_DELAY
@@ -64,7 +65,7 @@ def extract_site_code_other(w3w_other):
         sub = part.rsplit(".", 1)
         if len(sub) > 1 and sub[-1] in SITE_CODE_MAP:
             return sub[-1]
-    return None
+    return lookup_w3w_site(w3w_other)
 
 def build_headers():
     return {"User-Agent": "RiverGuardiansDashboard/1.0"}
@@ -168,27 +169,6 @@ def upsert_entries(parsed_entries):
         ).fetchone()
 
         if existing:
-            conn.execute("""
-                UPDATE entries SET
-                    uploaded_at = ?, title = ?, w3w = ?, w3w_site_code = ?,
-                    w3w_other = ?, landowner = ?, sample_date = ?, sample_time = ?,
-                    water_depth_cm = ?, phosphate_level = ?, ammonia_level = ?,
-                    nitrate_level = ?, turbidity = ?, dissolved_oxygen = ?,
-                    conductivity = ?, phosphate_high = ?, nitrate_high = ?,
-                    comments_1 = ?, photo_url = ?, photo_desc = ?,
-                    photo_2_url = ?, video_url = ?, comments_2 = ?, comments_3 = ?,
-                    latitude = ?, longitude = ?
-                WHERE ec5_uuid = ?
-            """, (
-                e["uploaded_at"], e["title"], e["w3w"], e["w3w_site_code"],
-                e["w3w_other"], e["landowner"], e["sample_date"], e["sample_time"],
-                e["water_depth_cm"], e["phosphate_level"], e["ammonia_level"],
-                e["nitrate_level"], e["turbidity"], e["dissolved_oxygen"],
-                e["conductivity"], e["phosphate_high"], e["nitrate_high"],
-                e["comments_1"], e["photo_url"], e["photo_desc"],
-                e["photo_2_url"], e["video_url"], e["comments_2"], e["comments_3"],
-                e["latitude"], e["longitude"], e["ec5_uuid"]
-            ))
             updated += 1
         else:
             conn.execute("""
