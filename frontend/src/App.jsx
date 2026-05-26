@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
-import { getStats, getSites, triggerSync, getSyncLog } from "./api";
+import { getStats, getSites, triggerSync, getSyncLog, clearCache } from "./api";
 import StatsCards from "./components/StatsCards";
 import ChemicalSelect from "./components/ChemicalSelect";
 import AnimatedSelect from "./components/AnimatedSelect";
@@ -57,6 +57,7 @@ export default function App() {
     setError("");
     try {
       await triggerSync();
+      clearCache();
       await loadData();
     } catch (e) {
       setError(e.message);

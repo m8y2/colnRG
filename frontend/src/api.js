@@ -13,6 +13,10 @@ async function fetchJSON(url) {
   return data;
 }
 
+export function clearCache() {
+  Object.keys(cache).forEach((k) => delete cache[k]);
+}
+
 export function getStats() {
   return fetchJSON(`${BASE}/stats`);
 }
@@ -35,7 +39,11 @@ export function getChemicals(chemical, filters = {}) {
 }
 
 export function triggerSync() {
-  return fetchJSON(`${BASE}/sync`);
+  const url = `${BASE}/sync?_=${Date.now()}`;
+  return fetch(url).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+    return r.json();
+  });
 }
 
 export function getSyncLog(limit = 10) {
