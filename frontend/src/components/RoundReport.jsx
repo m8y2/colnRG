@@ -26,6 +26,7 @@ function ProgressCard({ task }) {
 export default function RoundReport() {
   const [rounds, setRounds] = useState([]);
   const [allReports, setAllReports] = useState([]);
+  const [expandedReport, setExpandedReport] = useState(null);
   const [selectedRound, setSelectedRound] = useState("");
   const [runningTasks, setRunningTasks] = useState([]);
   const [viewing, setViewing] = useState(null);
@@ -74,6 +75,18 @@ export default function RoundReport() {
   };
 
   const handleView = async (id, roundLabel) => {
+    if (expandedReport === id) {
+      setExpandedReport(null);
+      return;
+    }
+    setExpandedReport(id);
+    try {
+      const report = await getRoundReport(roundLabel);
+      setViewing({ id, report_text: report.report_text, generated_at: report.generated_at, version: report.version });
+    } catch {
+      setViewing({ id, report_text: "Error loading report", generated_at: "", version: 0 });
+    }
+  };
     if (viewing?.id === id) { setViewing(null); return; }
     try {
       const report = await getRoundReport(roundLabel);
@@ -140,24 +153,33 @@ export default function RoundReport() {
                       {r.preview?.slice(0, 100)}…
                     </td>
                     <td>
-                      <button className="sync-btn" style={{ padding: "4px 10px", fontSize: "0.8rem" }} onClick={() => handleView(r.id, r.round_label)}>
-                        {viewing?.id === r.id ? "Hide" : "View"}
-                      </button>
+<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <button className="sync-btn" style={{ padding: "4px 10px", fontSize: "0.8rem" }} onClick={() => handleView(r.id, r.round_label)}>
+                            {expandedReport === r.id ? "▲" : "▼"}
+                          </button>
+                          {expandedReport === r.id && (
+                            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>v{viewing?.version || r.version}</div>
+                          )}
+                        </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {viewing && (
-              <div className="report-text" style={{ marginTop: 16, borderTop: "1px solid #e5e7eb", paddingTop: 16 }}>
-                <p style={{ fontSize: "0.8rem", color: "#6b7280", marginBottom: 8 }}>
-                  v{viewing.version} — {fmtDate(viewing.generated_at?.slice(0, 10))}
-                </p>
-                {viewing.report_text.split("\n").map((p, i) => (
-                  <p key={i}>{p}</p>
-                ))}
-              </div>
-            )}
+{expandedReport === r.id && viewing?.id === r.id && (
+                  <tr>
+                    <td colSpan="5">
+                      <div className="report-text" style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+                        <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: 8 }}>
+                          v{viewing.version} — {fmtDate(viewing.generated_at?.slice(0, 10))}
+                        </p>
+                        {viewing.report_text.split("\n").map((p, i) => (
+                          <p key={i}>{p}</p>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
           </div>
         )}
       </div>

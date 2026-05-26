@@ -69,7 +69,7 @@ export default function SiteMap({ sites, darkMode }) {
     });
 
     const tileUrl = darkMode
-      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      ? "https://tiles.stadiamaps.com/styles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
       : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 
     L.tileLayer(tileUrl, {
@@ -141,7 +141,7 @@ color: "var(--callout-color)"
     <div className="table-section">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <h2 className="chart-section-heading" style={{ margin: 0, marginBottom: 0 }}>Sampling Sites ({sites.length})</h2>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", color: "#374151", cursor: "pointer" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", color: "var(--text-secondary)", cursor: "pointer" }}>
           <input
             type="checkbox"
             checked={showLabels}

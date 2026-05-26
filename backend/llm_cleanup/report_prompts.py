@@ -58,7 +58,9 @@ Write a clear, concise summary report for sampling site {site_code} ({site_name}
 5. The only time period you may reference is the data shown above. Do not claim trends over "years" unless the data spans multiple years.
 6. Observations about trends must be grounded in specific data points shown (e.g. "phosphate was 0.25 on Apr 1 and 0.31 on Jun 1" rather than "phosphate has been increasing").
 7. The factfile above contains confirmed facts about the River Coln. You may use these as context but do not invent additional facts not listed there.
-8. Do not use markdown formatting. Output plain text only. Do not use bullet points or numbered lists.
+8. Do not use markdown formatting. Output plain text only. Do not use bullet points, numbered lists, asterisks, or other markup.
+9. Never extrapolate beyond the data. If the data does not explicitly state something (e.g., "trout observed"), do not include it in the report.
+10. When mentioning specific values, always include the units (e.g., "0.25 mg/L" not "0.25").
 
 Write a report in natural English prose (3-5 paragraphs). Include:
 1. Brief description of the site location and sampling frequency (based on data dates)
@@ -97,7 +99,9 @@ Write a clear, concise summary report for sampling round {round_label} ({round_s
 3. Do NOT reference the River Avon. The Coln joins the Thames, not the Avon.
 4. Comparisons between rounds must be grounded in the averages provided. State the actual numbers.
 5. The factfile above contains confirmed facts about the River Coln. You may use these as context but do not invent additional facts not listed there.
-6. Do not use markdown formatting. Output plain text only. Do not use bullet points or numbered lists.
+6. Do not use markdown formatting. Output plain text only. Do not use bullet points, numbered lists, asterisks, or other markup.
+7. Never extrapolate beyond the data. If the data does not explicitly state something (e.g., "trout observed"), do not include it in the report.
+8. When mentioning specific values, always include the units (e.g., "0.25 mg/L" not "0.25").
 
 Write a report in natural English prose (4-6 paragraphs). Include:
 1. Overview of this round — when sampling occurred and how many sites were visited
