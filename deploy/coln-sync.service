@@ -8,11 +8,4 @@ Group=www-data
 WorkingDirectory=/opt/coln-dashboard/backend
 
 Environment=PATH=/opt/coln-dashboard/backend/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/opt/coln-dashboard/backend/venv/bin/python -c "
-import sys; sys.path.insert(0, '.')
-from database import init_db; init_db()
-from sync import run_sync; result = run_sync()
-print(f'Sync completed: {result}')
-from clean_data import main; main()
-print('Data cleaned.')
-"
+ExecStart=/opt/coln-dashboard/backend/venv/bin/python /opt/coln-dashboard/backend/sync_runner.py
