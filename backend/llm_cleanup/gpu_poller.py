@@ -161,7 +161,10 @@ def run_on_droplet(ip, command):
 
 def destroy_droplet(droplet_id):
     print(f"Destroying droplet {droplet_id}...")
-    call_do("DELETE", f"/droplets/{droplet_id}")
+    try:
+        call_do("DELETE", f"/droplets/{droplet_id}")
+    except Exception as e:
+        print(f"  (destroy may have already completed: {e})")
 
 
 def fetch_new_entries():

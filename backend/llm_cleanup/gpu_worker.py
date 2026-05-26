@@ -110,7 +110,7 @@ def query_ollama(entry_text):
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=120) as resp:
+    with urllib.request.urlopen(req, timeout=600) as resp:
         result = json.loads(resp.read().decode())
 
     text = result.get("response", "")
