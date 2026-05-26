@@ -1,0 +1,9 @@
+[Unit]
+Description=Run EpiCollect sync daily at 06:00
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=1800
+
+[Install]
+WantedBy=timers.target
