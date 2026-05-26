@@ -109,19 +109,19 @@ export default function App() {
           className={`tab ${tab === "chart" ? "active" : ""}`}
           onClick={() => switchTab("chart")}
         >
-          Time Series
+          Chemical levels over time
         </button>
         <button
           className={`tab ${tab === "site-averages" ? "active" : ""}`}
           onClick={() => switchTab("site-averages")}
         >
-          Site Averages
+          Long-term Site Averages
         </button>
         <button
           className={`tab ${tab === "location-series" ? "active" : ""}`}
           onClick={() => switchTab("location-series")}
         >
-          Location Series
+          Round by round results
         </button>
         <button
           className={`tab ${tab === "sites" ? "active" : ""}`}
@@ -139,7 +139,7 @@ export default function App() {
           className={`tab ${tab === "photos" ? "active" : ""}`}
           onClick={() => switchTab("photos")}
         >
-          Photos
+          Photo Gallery
         </button>
       </div>
 
@@ -267,7 +267,7 @@ function ChartView({ siteFilter, dateFrom, dateTo }) {
 
   return (
     <div className="chart-section">
-      <h2 className="chart-section-heading">Chemical Time Series</h2>
+      <h2 className="chart-section-heading">Chemical levels over time</h2>
       <div className="chart-controls">
         <label>Chemical:</label>
         <ChemicalSelect value={chemical} onChange={setChemical} />

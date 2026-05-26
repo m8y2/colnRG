@@ -14,7 +14,6 @@ const COLS = [
   { key: "turbidity", label: "Turbidity" },
   { key: "dissolved_oxygen", label: "DO" },
   { key: "conductivity", label: "Conductivity" },
-  { key: "landowner", label: "Landowner" },
 ];
 
 const NUMERIC_KEYS = new Set([

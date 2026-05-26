@@ -58,7 +58,7 @@ export default function LocationSeries({ sites }) {
 
   return (
     <div className="chart-section">
-      <h2 className="chart-section-heading">Location Series — {data?.chemical}</h2>
+      <h2 className="chart-section-heading">Round by round results — {data?.chemical}</h2>
       <div className="chart-controls">
         <label>Chemical:</label>
         <ChemicalSelect value={chemical} onChange={setChemical} />
