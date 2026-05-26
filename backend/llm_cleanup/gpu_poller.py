@@ -221,7 +221,14 @@ def run_llm_on_entries(entries, label):
     with open(raw_path, "w") as f:
         json.dump(entries, f, indent=2)
 
-    droplet_id, ip = spin_up_droplet()
+    droplet_id = None
+    ip = None
+    try:
+        droplet_id, ip = spin_up_droplet()
+    except Exception:
+        if droplet_id:
+            destroy_droplet(droplet_id)
+        raise
 
     try:
         if not wait_for_ssh(ip):
@@ -251,7 +258,8 @@ def run_llm_on_entries(entries, label):
         print(f"  Error: {e}", file=sys.stderr)
         raise
     finally:
-        destroy_droplet(droplet_id)
+        if droplet_id:
+            destroy_droplet(droplet_id)
 
     os.remove(raw_path)
     if os.path.exists(cleaned_path):
