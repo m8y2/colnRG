@@ -86,36 +86,36 @@ run.py     Orchestrator script (uses Node 22 at /usr/local/opt/node@22/bin/node)
 
 ## LLM-based data cleaning pipeline
 
-New entries are cleaned by an LLM running on an ephemeral DigitalOcean GPU droplet.
+New entries are cleaned by an LLM running on an ephemeral DigitalOcean CPU droplet (s-2vcpu-4gb, llama3.2:1b).
 
 ### Architecture
 
 ```
-Main droplet ($6/mo)                     GPU droplet ($2.19/hr, ephemeral)
-┌──────────────────────┐                 ┌──────────────────────────┐
-│  gpu_poller.py        │──DO API spin──→│  Ollama + llama3.1:8b   │
-│  (runs as systemd     │──SCP raw JSON──→│  gpu_worker.py          │
-│   timer, e.g. hourly) │←──SCP cleaned──│                          │
-│                       │──DO API kill──→│  (destroyed after use)   │
-└──────────────────────┘                 └──────────────────────────┘
+Main droplet ($6/mo)                     LLM droplet ($32/mo, ~$0.05/hr, ephemeral)
+┌──────────────────────┐                 ┌──────────────────────────────┐
+│  gpu_poller.py        │──DO API spin──→│  Ollama + llama3.2:1b       │
+│  (runs as systemd     │──SCP raw JSON──→│  gpu_worker.py              │
+│   timer, e.g. hourly) │←──SCP cleaned──│                             │
+│                       │──DO API kill──→│  (destroyed after use)       │
+└──────────────────────┘                 └──────────────────────────────┘
 ```
 
 1. `gpu_poller.py` checks EpiCollect for entries uploaded since last sync
-2. If new entries found, calls DO API to spin up a GPU droplet from a pre-built snapshot
+2. If new entries found, calls DO API to spin up a CPU droplet from a pre-built snapshot
 3. SCPs raw entry data + worker script to the droplet
-4. SSH runs `gpu_worker.py` which sends each entry through Ollama (llama3.1:8b)
+4. SSH runs `gpu_worker.py` which sends each entry through Ollama (llama3.2:1b)
 5. LLM returns cleaned JSON for each entry
 6. Cleaned data SCP'd back, inserted into SQLite
-7. GPU droplet destroyed
+7. Droplet destroyed
 
 ### Files
 
 | File | Role | Runs on |
 |---|---|---|
 | `backend/llm_cleanup/gpu_poller.py` | Orchestrator — polls EpiCollect, spins droplets, copies data | Main droplet (systemd timer) |
-| `backend/llm_cleanup/gpu_worker.py` | Sends each entry to Ollama, parses LLM response | GPU droplet (ephemeral) |
+| `backend/llm_cleanup/gpu_worker.py` | Sends each entry to Ollama, parses LLM response | LLM droplet (ephemeral) |
 | `backend/llm_cleanup/prompt_template.py` | The cleaning prompt sent to the LLM | Included in gpu_worker.py |
-| `backend/llm_cleanup/setup_gpu.sh` | One-time setup for the GPU droplet (install Ollama + model) | GPU droplet (one-time) |
+| `backend/llm_cleanup/setup_llm_droplet.sh` | Startup script for the LLM droplet (install Ollama + pull model) | LLM droplet (one-time) |
 
 ### Custom LLM Prompt
 
@@ -131,40 +131,32 @@ The prompt (`prompt_template.py`) instructs the LLM to:
 
 ### DigitalOcean Setup Steps
 
-1. **Request GPU droplet access** — Submit a ticket at cloud.digitalocean.com requesting GPU Droplet access. Mention you need a single `gpu-h100x1-80gb` for inference. This takes ~1-2 business days.
+1. **Create a personal access token** — DO control panel → API → Tokens → Generate. Save as `DO_API_TOKEN`.
 
-2. **Create a personal access token** — DO control panel → API → Tokens → Generate. Save as `DO_API_TOKEN`.
+2. **Add SSH key** — DO control panel → Settings → Security → Add the public key from `~/.ssh/id_ed25519.pub`. Copy the fingerprint (run `ssh-keygen -lf ~/.ssh/id_ed25519.pub`).
 
-3. **Add SSH key** — DO control panel → Settings → Security → Add the public key from `~/.ssh/id_ed25519.pub`. Copy the fingerprint (run `ssh-keygen -lf ~/.ssh/id_ed25519.pub`).
+3. **Provision a one-time droplet** to set up the golden image:
+   - Create a droplet from DO control panel with these settings:
+     - Name: `coln-llm-setup`
+     - Region: London (lon1)
+     - Size: Basic → Premium Intel → s-2vcpu-4gb-120gb-intel ($32/mo)
+     - Image: Ubuntu 24.04
+     - SSH key: your key from step 2
+     - Startup script: paste the contents of `backend/llm_cleanup/setup_llm_droplet.sh` into the "Add startup script" field
+   - Boot it. The startup script installs Ollama and pulls `llama3.2:1b`. Run `tail -f /var/log/llm-setup.log` to check progress.
+   - Once done, verify: `ollama list` should show `llama3.2:1b`.
 
-4. **Provision a one-time GPU droplet** to set up the golden image:
-   ```bash
-   # Spin up manually from DO control panel:
-   #   Name: coln-llm-setup
-   #   Region: London (lon1)
-   #   Size: GPU H100x1 (gpu-h100x1-80gb)
-   #   Image: Ubuntu 24.04
-   #   SSH key: your key from step 3
-   
-   # SSH in and run the setup script:
-   ssh root@<temp-ip>
-   # Install curl first:
-   apt-get update && apt-get install -y curl
-   # Download and run setup:
-   curl -sL https://raw.githubusercontent.com/m8y2/colnRG/main/backend/llm_cleanup/setup_gpu.sh | bash
-   ```
+4. **Create a snapshot** — DO control panel → Droplets → coln-llm-setup → Snapshots → "Take Snapshot". Name it `coln-llm-cleanup-v1`. Wait for completion (~5 min). Note the snapshot ID (from the URL when viewing it). Destroy the temporary droplet.
 
-5. **Create a snapshot** — DO control panel → Droplets → coln-llm-setup → Snapshots → "Take Snapshot". Name it `coln-llm-cleanup-v1`. Wait for completion (~5 min). Note the snapshot ID (from the URL when viewing it). Destroy the temporary droplet.
-
-6. **Set environment variables** on the main droplet:
+5. **Set environment variables** on the main droplet:
    ```bash
    # Add to /etc/environment or the systemd service file:
    DO_API_TOKEN=<your-token>
-   GPU_SNAPSHOT_ID=<snapshot-id>
+   DROPLET_SNAPSHOT_ID=<snapshot-id>
    SSH_KEY_FINGERPRINT=<your-ssh-key-fingerprint>
    ```
 
-7. **Install the systemd timer** for the poller:
+6. **Install the systemd timer** for the poller:
    ```bash
    # Create /etc/systemd/system/coln-llm-poller.service:
    cat > /etc/systemd/system/coln-llm-poller.service << 'EOF'
@@ -175,7 +167,7 @@ The prompt (`prompt_template.py`) instructs the LLM to:
    [Service]
    Type=oneshot
    Environment="DO_API_TOKEN=<your-token>"
-   Environment="GPU_SNAPSHOT_ID=<snapshot-id>"
+   Environment="DROPLET_SNAPSHOT_ID=<snapshot-id>"
    Environment="SSH_KEY_FINGERPRINT=<fingerprint>"
    WorkingDirectory=/opt/coln-dashboard/backend
    ExecStart=/opt/coln-dashboard/backend/llm_cleanup/gpu_poller.py
@@ -202,11 +194,11 @@ The prompt (`prompt_template.py`) instructs the LLM to:
 
 | Item | Cost |
 |---|---|
-| GPU droplet runtime: ~5 min every 2 hours | ~$0.09/day, ~$2.70/month |
+| Droplet runtime: ~5 min every 2 hours | ~$0.05/day, ~$1.50/month |
 | Snapshot storage (10 GB) | ~$0.05/month |
-| **Total** | **~$2.75/month** |
+| **Total** | **~$1.55/month** |
 
-The poller checks every 2 hours but only spins up the GPU droplet when new entries actually exist. If no new data, cost is $0.
+The poller checks every 2 hours but only spins up the droplet when new entries actually exist. If no new data, cost is $0.
 
 ## No tests
 

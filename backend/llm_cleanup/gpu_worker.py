@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runs on the GPU droplet. Reads raw entries from stdin (JSON array),
+"""Runs on the LLM droplet. Reads raw entries from stdin (JSON array),
 cleans each one via the LLM, and writes cleaned entries to stdout (JSON array).
 
 Usage: cat raw_entries.json | python3 gpu_worker.py > cleaned_entries.json
@@ -18,7 +18,7 @@ import re
 import urllib.request
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "llama3.1:8b"
+MODEL = "llama3.2:1b"
 
 FIELD_PROMPT = """
 Rules for each field:

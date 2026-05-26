@@ -3,20 +3,20 @@
 
 Workflow:
 1. Fetch new entries from EpiCollect5 API
-2. If new entries exist, spin up a GPU droplet via DigitalOcean API
-3. Copy raw data + worker script to GPU droplet
+2. If new entries exist, spin up a CPU droplet via DigitalOcean API
+3. Copy raw data + worker script to the droplet
 4. SSH in and run gpu_worker.py
 5. Copy cleaned results back
 6. Insert cleaned entries into SQLite
-7. Destroy GPU droplet
+7. Destroy droplet
 
 Requires: pip install requests
 
 Environment variables:
-  DO_API_TOKEN=xxx          DigitalOcean personal access token
-  GPU_SNAPSHOT_ID=xxx       Snapshot ID with Ollama + model pre-installed
-  GPU_DROPLET_SIZE=gpu-h100x1-80gb   GPU droplet size slug
-  GPU_REGION=lon1            Droplet region
+  DO_API_TOKEN=xxx              DigitalOcean personal access token
+  DROPLET_SNAPSHOT_ID=xxx       Snapshot ID with Ollama + model pre-installed
+  DROPLET_SIZE=s-2vcpu-4gb-120gb-intel   Droplet size slug
+  DROPLET_REGION=lon1           Droplet region
 """
 
 import json
@@ -29,9 +29,9 @@ import urllib.error
 from datetime import datetime, timezone
 
 DO_API_TOKEN = os.environ.get("DO_API_TOKEN", "")
-GPU_SNAPSHOT_ID = os.environ.get("GPU_SNAPSHOT_ID", "")
-GPU_DROPLET_SIZE = os.environ.get("GPU_DROPLET_SIZE", "gpu-h100x1-80gb")
-GPU_REGION = os.environ.get("GPU_REGION", "lon1")
+DROPLET_SNAPSHOT_ID = os.environ.get("DROPLET_SNAPSHOT_ID", "")
+DROPLET_SIZE = os.environ.get("DROPLET_SIZE", "s-2vcpu-4gb-120gb-intel")
+DROPLET_REGION = os.environ.get("DROPLET_REGION", "lon1")
 SSH_KEY_FINGERPRINT = os.environ.get("SSH_KEY_FINGERPRINT", "")
 
 EPICOLLECT_EXPORT = os.environ.get(
@@ -64,13 +64,13 @@ def call_do(method, path, data=None):
         return json.loads(resp.read().decode())
 
 
-def spin_up_gpu():
-    print("Spinning up GPU droplet...")
+def spin_up_droplet():
+    print("Spinning up LLM cleaning droplet...")
     config = {
         "name": f"llm-cleanup-{int(time.time())}",
-        "region": GPU_REGION,
-        "size": GPU_DROPLET_SIZE,
-        "image": GPU_SNAPSHOT_ID,
+        "region": DROPLET_REGION,
+        "size": DROPLET_SIZE,
+        "image": DROPLET_SNAPSHOT_ID,
         "ssh_keys": [SSH_KEY_FINGERPRINT] if SSH_KEY_FINGERPRINT else [],
         "tags": ["llm-cleanup", "ephemeral"],
         "monitoring": False,
@@ -99,7 +99,8 @@ def wait_for_ssh(ip, timeout=300):
     return False
 
 
-def wait_for_ollama(ip, timeout=120):
+def wait_for_ollama(ip, timeout=300):
+    """Wait for Ollama to be ready (model may still be pulling on first boot)."""
     start = time.time()
     while time.time() - start < timeout:
         result = subprocess.run(
@@ -110,7 +111,8 @@ def wait_for_ollama(ip, timeout=120):
         if result.returncode == 0 and "models" in result.stdout:
             print(f"  Ollama ready after {time.time() - start:.0f}s")
             return True
-        time.sleep(5)
+        print(f"  Waiting for Ollama... ({time.time() - start:.0f}s)")
+        time.sleep(10)
     return False
 
 
@@ -140,7 +142,7 @@ def run_on_droplet(ip, command):
 
 
 def destroy_droplet(droplet_id):
-    print(f"Destroying GPU droplet {droplet_id}...")
+    print(f"Destroying droplet {droplet_id}...")
     call_do("DELETE", f"/droplets/{droplet_id}")
 
 
@@ -201,7 +203,7 @@ def main():
         print("  No new entries found.")
         return
 
-    print(f"  {len(new_entries)} new entries found, spinning up GPU droplet...")
+        print(f"  {len(new_entries)} new entries found, spinning up LLM droplet...")
 
     raw_path = "/tmp/llm_raw_entries.json"
     cleaned_path = "/tmp/llm_cleaned_entries.json"
@@ -214,7 +216,7 @@ def main():
     with open(raw_path, "w") as f:
         json.dump(new_entries, f, indent=2)
 
-    droplet_id, ip = spin_up_gpu()
+    droplet_id, ip = spin_up_droplet()
 
     try:
         if not wait_for_ssh(ip):
