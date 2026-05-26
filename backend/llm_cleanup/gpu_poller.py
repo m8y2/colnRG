@@ -68,16 +68,27 @@ def spin_up_droplet():
         "region": DROPLET_REGION,
         "size": DROPLET_SIZE,
         "image": DROPLET_SNAPSHOT_ID,
-        "ssh_keys": [SSH_KEY_FINGERPRINT] if SSH_KEY_FINGERPRINT else [],
+        "ssh_keys": [int(SSH_KEY_FINGERPRINT)] if SSH_KEY_FINGERPRINT and SSH_KEY_FINGERPRINT.isdigit() else [],
         "tags": ["llm-cleanup", "ephemeral"],
         "monitoring": False,
     }
     result = call_do("POST", "/droplets", config)
     droplet = result["droplet"]
     droplet_id = droplet["id"]
-    ip = droplet["networks"]["v4"][0]["ip_address"]
-    print(f"  Droplet {droplet_id} created at {ip}")
-    return droplet_id, ip
+    print(f"  Droplet {droplet_id} created, waiting for IP...")
+
+    start = time.time()
+    while time.time() - start < 120:
+        info = call_do("GET", f"/droplets/{droplet_id}")
+        networks = info["droplet"].get("networks", {}).get("v4", [])
+        for net in networks:
+            if net.get("type") == "public":
+                ip = net["ip_address"]
+                print(f"  Droplet {droplet_id} ready at {ip} ({time.time() - start:.0f}s)")
+                return droplet_id, ip
+        time.sleep(5)
+
+    raise RuntimeError(f"Droplet {droplet_id} did not get an IP within 120s")
 
 
 def wait_for_ssh(ip, timeout=300):
