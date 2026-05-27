@@ -39,7 +39,7 @@ function yPos(i) {
   return TOP_Y + i * STEP;
 }
 
-export default function ColnLine() {
+export default function ColnLine({ darkMode }) {
   const thamesY = yPos(SITES.length - 1) + 40;
   const [popup, setPopup] = useState(null);
   const [loadingPopup, setLoadingPopup] = useState(false);
@@ -81,8 +81,8 @@ export default function ColnLine() {
           height={POPUP_H}
           rx={8}
           ry={8}
-          fill="#fff"
-          stroke="#e5e7eb"
+          fill={darkMode ? "#1e293b" : "#fff"}
+          stroke={darkMode ? "#475569" : "#e5e7eb"}
           strokeWidth={1}
           filter="url(#popup-shadow)"
         />
@@ -92,22 +92,22 @@ export default function ColnLine() {
           width={POPUP_W - 20}
           height={POPUP_H - 20}
         >
-          <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", fontSize: "0.8rem" }}>
+          <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", fontSize: "0.8rem", color: "var(--text)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <strong style={{ fontSize: "0.9rem" }}>{popup.site} — {popup.name}</strong>
+              <strong style={{ fontSize: "0.9rem", color: "var(--text)" }}>{popup.site} — {popup.name}</strong>
               <span
                 onClick={() => setPopup(null)}
-                style={{ cursor: "pointer", color: "#4b5563", fontSize: "1.1rem", lineHeight: 1 }}
+                style={{ cursor: "pointer", color: "var(--text-muted)", fontSize: "1.1rem", lineHeight: 1 }}
               >
                 ×
               </span>
             </div>
             {!chems || Object.keys(chems).length === 0 ? (
-              <p style={{ color: "#6b7280", margin: 0 }}>No chemical data.</p>
+              <p style={{ color: "var(--text-muted)", margin: 0 }}>No chemical data.</p>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
-                  <tr style={{ color: "#6b7280", borderBottom: "1px solid #e5e7eb" }}>
+                  <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
                     <th style={{ textAlign: "left", padding: "3px 6px" }}>Chemical</th>
                     <th style={{ textAlign: "right", padding: "3px 6px" }}>Mean</th>
                     <th style={{ textAlign: "right", padding: "3px 6px" }}>Max</th>
@@ -115,16 +115,16 @@ export default function ColnLine() {
                 </thead>
                 <tbody>
                   {Object.entries(chems).map(([chem, info]) => (
-                    <tr key={chem} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                      <td style={{ padding: "3px 6px", fontWeight: 500, textTransform: "capitalize" }}>{chem.replace("_", " ")}</td>
-                      <td style={{ padding: "3px 6px", textAlign: "right" }}>{info.mean}</td>
-                      <td style={{ padding: "3px 6px", textAlign: "right" }}>{info.max}</td>
+                    <tr key={chem} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "3px 6px", fontWeight: 500, textTransform: "capitalize", color: "var(--text)" }}>{chem.replace("_", " ")}</td>
+                      <td style={{ padding: "3px 6px", textAlign: "right", color: "var(--text-secondary)" }}>{info.mean}</td>
+                      <td style={{ padding: "3px 6px", textAlign: "right", color: "var(--text-secondary)" }}>{info.max}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
-            <p style={{ fontSize: "0.65rem", color: "#6b7280", margin: "6px 0 0" }}>
+            <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", margin: "6px 0 0" }}>
               Values in {chems?.phosphate?.unit || "mg/L"}
             </p>
           </div>

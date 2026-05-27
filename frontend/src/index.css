@@ -810,6 +810,41 @@ body {
   gap: 6px;
 }
 
+.dark .recharts-default-tooltip {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px;
+}
+
 .dark .recharts-tooltip-label {
   color: var(--text) !important;
+}
+
+.dark .recharts-tooltip-item {
+  color: var(--text-secondary) !important;
+}
+
+.dark .recharts-tooltip-item-name {
+  color: var(--text-muted) !important;
+}
+
+.dark .recharts-tooltip-item-value {
+  color: var(--text) !important;
+}
+
+.dark .recharts-tooltip-cursor {
+  fill: var(--border) !important;
+  opacity: 0.3;
+}
+
+.dark .recharts-default-legend {
+  color: var(--text-secondary) !important;
+}
+
+.dark .recharts-cartesian-axis-tick-value {
+  fill: var(--text-muted) !important;
+}
+
+.dark .recharts-text {
+  fill: var(--text-secondary) !important;
 }

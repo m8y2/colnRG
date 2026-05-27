@@ -368,7 +368,7 @@ export default function App() {
                 The Coln Line
               </button>
             </div>
-            {sitesTab === "map" ? <SiteMap sites={sites} /> : <ColnLine />}
+            {sitesTab === "map" ? <SiteMap sites={sites} /> : <ColnLine darkMode={isDark} />}
           </Suspense>
         )}
       </main>
