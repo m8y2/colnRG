@@ -5,6 +5,7 @@ export default function PhotoGallery() {
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [photoY, setPhotoY] = useState(0);
   const overlayRef = useRef(null);
 
   useEffect(() => {
@@ -17,14 +18,8 @@ export default function PhotoGallery() {
   const handleSelect = (p, e) => {
     const tile = e.currentTarget;
     const rect = tile.getBoundingClientRect();
-    const offset = window.scrollY + rect.top - (window.innerHeight - rect.height) / 2;
-    window.scrollTo({ top: offset, behavior: "smooth" });
-    setTimeout(() => {
-      setSelected(p);
-      requestAnimationFrame(() => {
-        overlayRef.current?.scrollTo({ top: 0, behavior: "instant" });
-      });
-    }, 350);
+    setPhotoY(rect.top + rect.height / 2);
+    setSelected(p);
   };
 
   useEffect(() => {
@@ -61,20 +56,22 @@ export default function PhotoGallery() {
 
       {selected && (
         <div className="photo-overlay" ref={overlayRef}>
-          <div className="photo-overlay-top">
-            <div className="photo-overlay-meta">
-              {selected.w3w_site_code && <span className="photo-meta-tag">{selected.w3w_site_code}</span>}
-              <span className="photo-meta-date">{selected.sample_date}</span>
-              {selected.w3w && <span className="photo-meta-location">{selected.w3w}</span>}
-              {selected.photo_desc && <span className="photo-meta-desc">{selected.photo_desc}</span>}
+          <div className="photo-overlay-inner" style={{ paddingTop: Math.max(0, photoY - 100) }}>
+            <div className="photo-overlay-top">
+              <div className="photo-overlay-meta">
+                {selected.w3w_site_code && <span className="photo-meta-tag">{selected.w3w_site_code}</span>}
+                <span className="photo-meta-date">{selected.sample_date}</span>
+                {selected.w3w && <span className="photo-meta-location">{selected.w3w}</span>}
+                {selected.photo_desc && <span className="photo-meta-desc">{selected.photo_desc}</span>}
+              </div>
+              <button className="photo-close" onClick={() => setSelected(null)}>✕</button>
             </div>
-            <button className="photo-close" onClick={() => setSelected(null)}>✕</button>
+            <img
+              className="photo-overlay-img"
+              src={selected.photo_url || selected.photo_2_url}
+              alt={selected.photo_desc || "Photo"}
+            />
           </div>
-          <img
-            className="photo-overlay-img"
-            src={selected.photo_url || selected.photo_2_url}
-            alt={selected.photo_desc || "Photo"}
-          />
         </div>
       )}
     </div>

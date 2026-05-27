@@ -650,9 +650,14 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 24px;
+  justify-content: flex-start;
   overflow-y: auto;
+}
+
+.photo-overlay-inner {
+  width: 100%;
+  max-width: 900px;
+  padding: 24px;
 }
 
 .photo-overlay-top {
@@ -660,7 +665,6 @@ body {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  max-width: 900px;
   margin-bottom: 12px;
   gap: 12px;
 }
