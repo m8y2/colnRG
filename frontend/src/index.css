@@ -653,12 +653,17 @@ body {
 }
 
 .photo-tile-detail {
-  padding: 10px 12px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 10px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
-  animation: photoDetailIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.5) 70%, transparent 100%);
+  animation: photoDetailIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes photoDetailIn {
@@ -785,23 +790,17 @@ body {
 }
 
 .version-select {
-  position: relative;
-  z-index: 100;
-  isolation: isolate;
-}
-
-.version-select .chemical-select-menu {
-  background: var(--bg-card) !important;
-  z-index: 9999 !important;
-  overflow: visible !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-}
-
-.version-select .chemical-select-trigger {
-  padding: 2px 8px;
-  min-width: auto;
   font-size: 0.8rem;
-  gap: 6px;
+  padding: 2px 6px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.filters .chemical-select-trigger {
+  min-width: 300px;
 }
 
 .version-select .chemical-select-trigger {
