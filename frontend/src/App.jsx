@@ -33,6 +33,8 @@ export default function App() {
     return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
   });
   const [reportRunningTasks, setReportRunningTasks] = useState([]);
+  const [completedTasks, setCompletedTasks] = useState([]);
+  const prevBackendTasks = useRef([]);
 
   useEffect(() => {
     document.body.classList.toggle("dark", isDark);
@@ -44,18 +46,30 @@ export default function App() {
       try {
         const status = await getReportStatus();
         const backendTasks = (status.running || []).filter((t) => t.type !== "infra");
+        const backendIds = new Set(backendTasks.map((t) => t.id));
+
+        for (const pt of prevBackendTasks.current) {
+          if (!backendIds.has(pt.id) && pt.progress >= 0) {
+            setCompletedTasks((prev) => {
+              if (prev.some((c) => c.id === pt.id)) return prev;
+              return [...prev, { ...pt, progress: 100, message: "Complete", completedAt: Date.now() }];
+            });
+          }
+        }
+        prevBackendTasks.current = backendTasks;
+
         setReportRunningTasks((prev) => {
+          const now = Date.now();
           const merged = [...backendTasks];
           for (const t of prev) {
-            if (t.id && t.id.startsWith("opt-")) {
+            if (t.id && t.id.startsWith("opt-") && !backendTasks.some((bt) => bt.identifier === t.identifier && bt.type === t.type)) {
               const ts = parseInt(t.id.split("-").pop(), 10);
-              if (!backendTasks.some((bt) => bt.identifier === t.identifier && bt.type === t.type) && Date.now() - ts < 15000) {
-                merged.push(t);
-              }
+              if (now - ts < 15000) merged.push(t);
             }
           }
           return merged;
         });
+        setCompletedTasks((prev) => prev.filter((c) => Date.now() - c.completedAt < 60000));
       } catch {}
     };
     tick();
@@ -67,6 +81,8 @@ export default function App() {
     const task = { id: `opt-${identifier}-${Date.now()}`, identifier, progress: 0, message: "Queued...", type };
     setReportRunningTasks((prev) => [...prev, task]);
   }, []);
+
+  const completedCount = completedTasks.length;
 
   const toggleTheme = () => setIsDark((d) => !d);
 
@@ -143,22 +159,46 @@ export default function App() {
 
       {error && <div className="error">{error}</div>}
 
-      {reportRunningTasks.length > 0 && (
-        <div style={{ padding: "8px 16px", background: "var(--primary-bg)", borderBottom: "1px solid var(--border)", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <span style={{ fontWeight: 600, color: "var(--primary)" }}>Generating ({reportRunningTasks.length} running)</span>
-          {reportRunningTasks.filter((t) => t.type !== "infra").map((t) => (
-            <span key={t.id} style={{ color: "var(--text-secondary)" }}>
-              {t.identifier}: {t.progress < 0 ? "Failed" : `${t.progress}%`}
-              <span style={{ color: "var(--text-muted)", marginLeft: 4 }}>{t.message}</span>
-            </span>
-          ))}
-          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+      {(reportRunningTasks.length > 0 || completedTasks.length > 0) && (
+        <div style={{ padding: "8px 16px", background: "var(--primary-bg)", borderBottom: "1px solid var(--border)", fontSize: "0.85rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            {reportRunningTasks.length > 0 && (
+              <span style={{ fontWeight: 600, color: "var(--primary)" }}>Generating ({reportRunningTasks.length} running)</span>
+            )}
             {reportRunningTasks.filter((t) => t.type !== "infra").map((t) => (
-              <div key={t.id} style={{ width: 80, height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ width: `${Math.max(0, t.progress)}%`, height: "100%", background: t.progress < 0 ? "var(--error)" : "var(--primary)", borderRadius: 3, transition: "width 0.5s ease" }} />
-              </div>
+              <span key={t.id} style={{ color: "var(--text-secondary)" }}>
+                {t.identifier}: {t.progress < 0 ? "Failed" : `${t.progress}%`}
+                <span style={{ color: "var(--text-muted)", marginLeft: 4 }}>{t.message}</span>
+              </span>
             ))}
+            <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+              {reportRunningTasks.filter((t) => t.type !== "infra").map((t) => (
+                <div key={t.id} style={{ width: 80, height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ width: `${Math.max(0, t.progress)}%`, height: "100%", background: t.progress < 0 ? "var(--error)" : "var(--primary)", borderRadius: 3, transition: "width 0.5s ease" }} />
+                </div>
+              ))}
+            </div>
           </div>
+          {completedTasks.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--border)" }}>
+              <span style={{ fontWeight: 600, color: "var(--success)" }}>Complete ({completedTasks.length})</span>
+              {completedTasks.map((t) => (
+                <span key={t.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ color: "var(--success)" }}>{t.identifier} ✓</span>
+                  <button
+                    className="sync-btn"
+                    style={{ padding: "2px 8px", fontSize: "0.75rem", background: "var(--success)", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}
+                    onClick={() => {
+                      const target = t.type === "site" ? "site-report" : "round-report";
+                      switchTab(target);
+                    }}
+                  >
+                    View
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
