@@ -16,10 +16,13 @@ export default function PhotoGallery() {
 
   const handleSelect = (p) => {
     setSelected(p);
-    requestAnimationFrame(() => {
-      overlayRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
   };
+
+  useEffect(() => {
+    if (selected && overlayRef.current) {
+      overlayRef.current.scrollTop = 0;
+    }
+  }, [selected]);
 
   if (loading) return <div className="loading">Loading photos...</div>;
 
