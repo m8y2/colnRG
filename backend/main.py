@@ -2,6 +2,7 @@ import json
 import os
 import secrets
 import threading
+import time
 from datetime import datetime, timedelta
 from collections import defaultdict
 from fastapi import FastAPI, Query, HTTPException, BackgroundTasks
@@ -514,10 +515,17 @@ def _destroy_droplet():
     did = _report_droplet.get("id")
     if did:
         print(f"  Destroying droplet {did}...")
-        try:
-            call_do("DELETE", f"/droplets/{did}")
-        except Exception as e:
-            print(f"  WARNING: failed to destroy droplet {did}: {e}")
+        for attempt in range(3):
+            try:
+                call_do("DELETE", f"/droplets/{did}")
+                print(f"  Droplet {did} destroyed")
+                break
+            except Exception as e:
+                if attempt < 2:
+                    print(f"  Retry {attempt+1} for droplet {did}: {e}")
+                    time.sleep(3)
+                else:
+                    print(f"  WARNING: failed to destroy droplet {did} after 3 attempts: {e}")
     _report_droplet["id"] = None
     _report_droplet["ip"] = None
     _report_droplet_ready = False
