@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { getRounds, getAllRoundReports, getRoundReport, getRoundReportVersions, triggerRoundReport, getReportStatus } from "../api";
 import { fmtDate } from "../utils";
 
@@ -25,13 +25,14 @@ function ProgressCard({ task }) {
 
 function VersionSelector({ versions, selectedVersion, onSelect }) {
   if (!versions || versions.length < 2) return null;
+  const sorted = [...versions].sort((a, b) => a.version - b.version);
   return (
     <select
       value={selectedVersion}
       onChange={(e) => onSelect(Number(e.target.value))}
-      style={{ fontSize: "0.8rem", padding: "2px 4px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text-primary)" }}
+      className="version-select"
     >
-      {versions.map((v) => (
+      {sorted.map((v) => (
         <option key={v.version} value={v.version}>
           v{v.version} — {fmtDate(v.generated_at?.slice(0, 10))}
         </option>
@@ -51,6 +52,17 @@ export default function RoundReport() {
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [error, setError] = useState("");
   const prevCount = useRef(0);
+
+  const latestReports = useMemo(() => {
+    const map = {};
+    for (const r of allReports) {
+      const key = r.round_label;
+      if (!map[key] || r.version > map[key].version) {
+        map[key] = r;
+      }
+    }
+    return Object.values(map).sort((a, b) => (b.generated_at || "").localeCompare(a.generated_at || ""));
+  }, [allReports]);
 
   useEffect(() => {
     getRounds().then((data) => {
@@ -158,8 +170,8 @@ export default function RoundReport() {
       )}
 
       <div className="chart-section">
-        <h2 className="chart-section-heading">All Round Reports ({allReports.length})</h2>
-        {allReports.length === 0 ? (
+        <h2 className="chart-section-heading">All Round Reports ({latestReports.length})</h2>
+        {latestReports.length === 0 ? (
           <p style={{ color: "var(--text-muted)", padding: 24, textAlign: "center" }}>No reports generated yet.</p>
         ) : (
           <div>
@@ -167,14 +179,14 @@ export default function RoundReport() {
               <thead>
                 <tr>
                   <th>Round</th>
-                  <th>Version</th>
+                  <th>Latest</th>
                   <th>Generated</th>
                   <th>Preview</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {allReports.map((r) => (
+                {latestReports.map((r) => (
                   <tr key={r.id}>
                     <td><strong>{r.round_label}</strong></td>
                     <td>v{r.version}</td>
@@ -198,7 +210,7 @@ export default function RoundReport() {
                     </td>
                   </tr>
                 ))}
-                {allReports.map((r) => viewing?.id === r.id && (
+                {latestReports.map((r) => viewing?.id === r.id && (
                   <tr key={`expanded-${r.id}`}>
                     <td colSpan="5" style={{ padding: "12px 16px" }}>
                       <div className="report-text">
