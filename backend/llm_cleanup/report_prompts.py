@@ -40,7 +40,7 @@ MONITORING_CONTEXT = """## Monitoring program context (accurate facts — do not
 - Individual sites average 8–9 sampling rounds each, spanning approximately 10–11 months"""
 
 
-SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for sampling site {site_code} ({site_name}) on the River Coln.
+SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for sampling site {site_code} on the River Coln.
 
 {factfile}
 
@@ -76,6 +76,7 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 12. The factfile is background context only. Do not recite it. Do not list discharge rates, geology, or village names unless directly relevant to this site's data.
 13. The Monitoring program context section above contains accurate facts about the project. Use it for project-level context. Do not contradict it.
 14. All dates must be exact from the data. Do not invent or approximate dates.
+15. The site code is {site_code}. Refer to the site only by its code. Do not invent or use any other name for the site.
 
 Write a report in natural English prose (3-5 paragraphs). Include:
 1. Brief description of the site location (relative to upstream/downstream neighbours) and its sampling dates

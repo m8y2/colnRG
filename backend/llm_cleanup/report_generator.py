@@ -274,7 +274,7 @@ def generate_site_report(site_code, progress_callback=None, ip=None):
     site_name = get_site_name(site_code)
     site_location_context = get_site_location_context(site_code)
     entries_text = build_site_data(site_code)
-    prompt = SITE_REPORT_PROMPT.format(site_code=site_code, site_name=site_name, site_location_context=site_location_context, entries=entries_text, factfile=COLN_FACTFILE, site_order=SITE_ORDER_TEXT, monitoring_context=MONITORING_CONTEXT)
+    prompt = SITE_REPORT_PROMPT.format(site_code=site_code, site_location_context=site_location_context, entries=entries_text, factfile=COLN_FACTFILE, site_order=SITE_ORDER_TEXT, monitoring_context=MONITORING_CONTEXT)
     if progress_callback:
         progress_callback(10, "Data context ready")
     if ip:
