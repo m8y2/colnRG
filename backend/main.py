@@ -590,6 +590,7 @@ def _worker_loop():
                 _task_progress.pop(task["id"], None)
             import traceback
             traceback.print_exc()
+            _destroy_droplet()
 
     # Queue empty — keep droplet alive for 30s to handle new requests
     _report_worker_busy = False
