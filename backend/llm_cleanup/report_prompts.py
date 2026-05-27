@@ -20,12 +20,7 @@ COLN_FACTFILE = """## River Coln Factfile (verified facts only — do not invent
 - The river has no major tributaries
 - Population of the Coln catchment: ~9,000
 - Invasive non-native species present: American signal crayfish
-- The river flows through the Cotswold Water Park area downstream of Fairford
-- The Cotswold Water Park (Cotswold Lakes) is the UK's largest marl lake system: 180 lakes over 42 sq miles spanning the Gloucestershire–Wiltshire border
-- Gravel extraction in the second half of the 20th century created the lakes; they filled naturally from rivers and streams
-- The lower Coln flows through the eastern section of the Cotswold Lakes area, between Fairford and Lechlade
-- Whelford Pools (GWT reserve) drain south towards the River Coln and Thames; important for wintering wildfowl
-- The Coln is a primary tributary feeding the Cotswold Lakes system in its lower reaches"""
+- The river flows through the Cotswold Water Park area downstream of Fairford"""
 
 SITE_ORDER_UPSTREAM_TO_DOWNSTREAM = [
     "EP", "PW", "SJR", "MG", "NL", "ST/LAT", "CS", "WMW", "GED", "DFG", "GDR",
@@ -81,9 +76,6 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 12. The factfile is background context only. Do not recite it. Do not list discharge rates, geology, or village names unless directly relevant to this site's data.
 13. The Monitoring program context section above contains accurate facts about the project. Use it for project-level context. Do not contradict it.
 14. All dates must be exact from the data. Do not invent or approximate dates.
-15. Never report values or ranges for a chemical that has no data entries. If a chemical field is absent from the site data, do not mention it. Only discuss chemicals that have actual measured values shown in the site data above.
-16. Never create ranges from chemical values. Do NOT write "ranging from X to Y" or "levels between A and B". Instead, list the actual value for each sampling date (e.g. "DO was 0 mg/L on 5 Nov").
-17. Never claim the site is at the confluence of the Thames or at the mouth of the river. The sites are along the River Coln, not at its confluence.
 
 Write a report in natural English prose (3-5 paragraphs). Include:
 1. Brief description of the site location (relative to upstream/downstream neighbours) and its sampling dates

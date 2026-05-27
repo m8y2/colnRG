@@ -263,11 +263,6 @@ All requests require an `api_key` query parameter:
 
 Set the `ADMIN_API_KEY` environment variable on the droplet to authorize key management.
 
-**Current admin key (keep secret):**
-```
-XGs7W6U7cJy55AW91GFu98AKm-XkPRkKMoG4fe-4vJo
-```
-
 ### Managing API keys
 
 | Method | Endpoint | Description |
