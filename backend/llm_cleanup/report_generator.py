@@ -258,12 +258,10 @@ def get_site_location_context(site_code):
     parts = []
     if idx > 0:
         up_code = SITE_ORDER_UPSTREAM_TO_DOWNSTREAM[idx - 1]
-        up_name = get_site_name(up_code)
-        parts.append(f"{up_code} ({up_name}) upstream")
+        parts.append(f"{up_code} upstream")
     if idx < len(SITE_ORDER_UPSTREAM_TO_DOWNSTREAM) - 1:
         down_code = SITE_ORDER_UPSTREAM_TO_DOWNSTREAM[idx + 1]
-        down_name = get_site_name(down_code)
-        parts.append(f"{down_code} ({down_name}) downstream")
+        parts.append(f"{down_code} downstream")
     if parts:
         return f"This site sits between {' and '.join(parts)} on the River Coln."
     return ""

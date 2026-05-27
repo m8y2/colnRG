@@ -69,14 +69,16 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 5. Never mention sewage, STW, treatment works, or pollution sources unless the specific site's data explicitly contains such a mention.
 6. Never mention fishing, trout, grayling, or wildlife. The project is a water quality monitoring scheme, not an ecological survey.
 7. Never invent monitoring patterns. Do not say "sampled daily" or "sampled weekly for X weeks" unless the data explicitly shows that frequency.
-8. Never speculate about causes of water quality. Do not say "may be due to agricultural activities" or similar.
+8. Never speculate about causes or sources. Ban phrases like "may be due to", "suggests that", "could indicate", "might be related to", "possibly", "potentially", "likely caused by".
 9. Never use first person (I, my, we, our). Write as a neutral third-party report.
-10. Cite specific values with units (e.g. "0.25 mg/L").
+10. Cite specific values with units (e.g. "0.25 mg/L"). Every claim about a chemical must include its exact measured value.
 11. No markdown formatting — plain text only, no bullet points.
-12. The factfile is background context only. Do not recite it. Do not list discharge rates, geology, or village names unless directly relevant to this site's data.
+12. Never quote, paraphrase, or reference the factfile text in your response. It is background knowledge only.
 13. The Monitoring program context section above contains accurate facts about the project. Use it for project-level context. Do not contradict it.
 14. All dates must be exact from the data. Do not invent or approximate dates.
-15. The site code is {site_code}. Refer to the site only by its code. Do not invent or use any other name for the site.
+15. The only valid identifier for this site is the code {site_code}. Never use any other name or label.
+16. Never include a chemical that has no readings in the site data. If dissolved oxygen, conductivity, or any other field is absent from all entries, do not mention it. Never use WFD threshold values as actual measurements.
+17. The River Coln has no tributaries. Do not mention any tributaries, confluences, or side streams.
 
 Write a report in natural English prose (3-5 paragraphs). Include:
 1. Brief description of the site location (relative to upstream/downstream neighbours) and its sampling dates
