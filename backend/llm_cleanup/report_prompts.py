@@ -81,7 +81,9 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 12. The factfile is background context only. Do not recite it. Do not list discharge rates, geology, or village names unless directly relevant to this site's data.
 13. The Monitoring program context section above contains accurate facts about the project. Use it for project-level context. Do not contradict it.
 14. All dates must be exact from the data. Do not invent or approximate dates.
-15. Never report ranges that are not in the data. For example, if the data shows individual DO values, do not combine them into a range like "0-7 mg/L" unless that exact range appears in the data. Only report the actual values shown.
+15. Never report values or ranges for a chemical that has no data entries. If a chemical field is absent from the site data, do not mention it. Only discuss chemicals that have actual measured values shown in the site data above.
+16. Never mention "dissolved oxygen" or "DO" unless the site data explicitly contains dissolved_oxygen values.
+17. Never claim the site is at the confluence of the Thames or at the mouth of the river. The sites are along the River Coln, not at its confluence.
 
 Write a report in natural English prose (3-5 paragraphs). Include:
 1. Brief description of the site location (relative to upstream/downstream neighbours) and its sampling dates
