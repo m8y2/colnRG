@@ -516,8 +516,8 @@ def _destroy_droplet():
         print(f"  Destroying droplet {did}...")
         try:
             call_do("DELETE", f"/droplets/{did}")
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"  WARNING: failed to destroy droplet {did}: {e}")
     _report_droplet["id"] = None
     _report_droplet["ip"] = None
     _report_droplet_ready = False
