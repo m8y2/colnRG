@@ -609,23 +609,33 @@ body {
 }
 
 .photo-tile {
-  aspect-ratio: 1;
   overflow: hidden;
   border-radius: 8px;
   cursor: pointer;
   position: relative;
   background: var(--md-bg);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
 }
 
 .photo-tile img {
   width: 100%;
-  height: 100%;
+  aspect-ratio: 1;
   object-fit: cover;
-  transition: transform 0.2s;
+  display: block;
 }
 
-.photo-tile:hover img {
-  transform: scale(1.05);
+.photo-tile:hover {
+  transform: scale(1.03);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.photo-tile-open {
+  transform: scale(1.02);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+}
+
+.photo-tile-open:hover {
+  transform: scale(1.02);
 }
 
 .photo-tile-info {
@@ -642,65 +652,26 @@ body {
   pointer-events: none;
 }
 
-.photo-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay);
-  z-index: 1000;
+.photo-tile-detail {
+  padding: 10px 12px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: photoFadeIn 0.25s ease;
-  cursor: default;
-}
-
-@keyframes photoFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.photo-overlay-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  max-width: 90vw;
-  max-height: 90vh;
-  animation: photoScaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes photoScaleIn {
-  from { opacity: 0; transform: scale(0.92) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-.photo-overlay-img {
-  max-width: 90vw;
-  max-height: 75vh;
-  object-fit: contain;
-  border-radius: 12px 12px 0 0;
-  cursor: default;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-}
-
-.photo-overlay-caption {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   flex-wrap: wrap;
-  padding: 12px 16px;
-  background: rgba(0, 0, 0, 0.65);
-  border-radius: 0 0 12px 12px;
-  width: 100%;
-  box-sizing: border-box;
+  gap: 6px;
+  align-items: center;
+  animation: photoDetailIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes photoDetailIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .photo-meta-tag,
 .photo-meta-date,
-.photo-meta-location,
-.photo-meta-desc {
-  padding: 3px 8px;
+.photo-meta-location {
+  padding: 2px 8px;
   border-radius: 5px;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: #fff;
 }
 
@@ -710,11 +681,11 @@ body {
 }
 
 .photo-meta-date {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.15);
 }
 
 .photo-meta-location {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.08);
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -722,57 +693,17 @@ body {
 }
 
 .photo-meta-desc {
-  background: rgba(255, 255, 255, 0.08);
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.photo-close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5);
-  border: none;
-  color: #fff;
-  font-size: 1.3rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1001;
-  transition: background 0.15s;
-}
-
-.photo-close:hover {
-  background: rgba(0, 0, 0, 0.75);
+  width: 100%;
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 @media (max-width: 768px) {
   .photo-grid {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 8px;
-  }
-
-  .photo-overlay-content {
-    max-width: 96vw;
-  }
-
-  .photo-overlay-img {
-    max-width: 96vw;
-    max-height: 60vh;
-  }
-
-  .photo-close {
-    top: 8px;
-    right: 8px;
-    width: 36px;
-    height: 36px;
-    font-size: 1.1rem;
   }
 }
 
@@ -855,14 +786,15 @@ body {
 
 .version-select {
   position: relative;
-  z-index: 10;
+  z-index: 100;
+  isolation: isolate;
 }
 
 .version-select .chemical-select-menu {
   background: var(--bg-card) !important;
   z-index: 9999 !important;
   overflow: visible !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .version-select .chemical-select-trigger {
@@ -870,8 +802,13 @@ body {
   min-width: auto;
   font-size: 0.8rem;
   gap: 6px;
-  z-index: 1;
-  position: relative;
+}
+
+.version-select .chemical-select-trigger {
+  padding: 2px 8px;
+  min-width: auto;
+  font-size: 0.8rem;
+  gap: 6px;
 }
 
 .dark .recharts-tooltip-label {
