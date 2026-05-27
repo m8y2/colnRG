@@ -5,7 +5,8 @@ the generated report text to stdout.
 Input JSON format:
 {
   "type": "site" or "round",
-  "prompt": "..."  # fully rendered prompt string
+  "system": "..."  # rules and instructions (sent as Ollama system message)
+  "prompt": "..."  # data and context (sent as Ollama prompt)
 }
 
 Output: plain text report to stdout.
@@ -19,13 +20,16 @@ MODEL = "llama3.2:1b"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
 
-def query_ollama(prompt):
-    payload = json.dumps({
+def query_ollama(prompt, system=None):
+    body = {
         "model": MODEL,
         "prompt": prompt,
         "stream": False,
         "options": {"temperature": 0.0, "num_predict": 1024},
-    }).encode()
+    }
+    if system:
+        body["system"] = system
+    payload = json.dumps(body).encode()
 
     req = urllib.request.Request(
         OLLAMA_URL, data=payload,
@@ -42,11 +46,12 @@ def main():
     request = json.loads(raw)
 
     prompt = request["prompt"]
+    system = request.get("system", "")
     report_type = request.get("type", "unknown")
 
     print(f"Generating {report_type} report...", file=sys.stderr)
 
-    response = query_ollama(prompt)
+    response = query_ollama(prompt, system=system)
 
     if not response:
         print("LLM returned empty response", file=sys.stderr)

@@ -327,10 +327,17 @@ def generate_round_report(round_label, round_start, round_end, progress_callback
     return generate_report("round", prompt, round_label, progress_callback=progress_callback)['report_text']
 
 
-def run_task_on_droplet(ip, report_type, prompt, identifier, progress_callback=None):
+def run_task_on_droplet(ip, report_type, prompt, identifier, progress_callback=None, system_prompt=None):
     """Run a single report generation task on an already-set-up droplet (no SSH/Ollama checks)."""
     worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_worker.py")
-    request = json.dumps({"type": report_type, "prompt": prompt})
+    if system_prompt is None:
+        idx = prompt.find("## RULES")
+        if idx != -1:
+            system_prompt = prompt[idx:]
+            prompt = prompt[:idx]
+        else:
+            system_prompt = ""
+    request = json.dumps({"type": report_type, "system": system_prompt, "prompt": prompt})
 
     if progress_callback:
         progress_callback(45, "Copying data to droplet")
@@ -390,7 +397,13 @@ def run_task_on_droplet(ip, report_type, prompt, identifier, progress_callback=N
 def generate_report(report_type, prompt, identifier, progress_callback=None):
     """Standalone: spin droplet, run task, destroy droplet. Used by CLI."""
     worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_worker.py")
-    request = json.dumps({"type": report_type, "prompt": prompt})
+    idx = prompt.find("## RULES")
+    if idx != -1:
+        system_prompt = prompt[idx:]
+        prompt = prompt[:idx]
+    else:
+        system_prompt = ""
+    request = json.dumps({"type": report_type, "system": system_prompt, "prompt": prompt})
 
     if progress_callback:
         progress_callback(12, "Spinning up droplet")
