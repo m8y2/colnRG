@@ -64,7 +64,7 @@ export default function App() {
           for (const t of prev) {
             if (t.id && t.id.startsWith("opt-") && !backendTasks.some((bt) => bt.identifier === t.identifier && bt.type === t.type)) {
               const ts = parseInt(t.id.split("-").pop(), 10);
-              if (now - ts < 15000) merged.push(t);
+              if (now - ts < 60000) merged.push(t);
             }
           }
           return merged;

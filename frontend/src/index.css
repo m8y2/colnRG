@@ -648,14 +648,68 @@ body {
   background: var(--overlay);
   z-index: 1000;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  overflow-y: auto;
+}
+
+.photo-overlay-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 900px;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.photo-overlay-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.photo-meta-tag,
+.photo-meta-date,
+.photo-meta-location,
+.photo-meta-desc {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: #fff;
+}
+
+.photo-meta-tag {
+  background: var(--primary);
+  font-weight: 600;
+}
+
+.photo-meta-date {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.photo-meta-location {
+  background: rgba(255, 255, 255, 0.1);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.photo-meta-desc {
+  background: rgba(255, 255, 255, 0.1);
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .photo-overlay-img {
   max-width: 100%;
-  max-height: 100%;
+  max-height: 70vh;
   object-fit: contain;
   border-radius: 12px;
   cursor: default;
@@ -663,25 +717,22 @@ body {
 }
 
 .photo-close {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  width: 40px;
-  height: 40px;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(255, 255, 255, 0.15);
   border: none;
   color: #fff;
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1001;
 }
 
 .photo-close:hover {
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 @media (max-width: 768px) {
@@ -691,15 +742,12 @@ body {
   }
 
   .photo-overlay {
-    padding: 8px;
+    padding: 12px;
+    justify-content: flex-start;
   }
 
-  .photo-close {
-    top: 8px;
-    right: 8px;
-    width: 36px;
-    height: 36px;
-    font-size: 1.1rem;
+  .photo-overlay-img {
+    max-height: 60vh;
   }
 }
 
@@ -782,11 +830,14 @@ body {
 
 .version-select {
   position: relative;
+  z-index: 10;
 }
 
 .version-select .chemical-select-menu {
   background: var(--bg-card) !important;
   z-index: 999 !important;
+  overflow: visible !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 .dark .recharts-tooltip-label {
