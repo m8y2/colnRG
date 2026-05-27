@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { getSites, getAllSiteReports, getSiteReport, triggerSiteReport, getReportStatus } from "../api";
+import { getSites, getAllSiteReports, getSiteReport, getSiteReportVersions, triggerSiteReport, getReportStatus } from "../api";
 import { fmtDate } from "../utils";
 import AnimatedSelect from "./AnimatedSelect";
 
@@ -24,6 +24,23 @@ function ProgressCard({ task }) {
   );
 }
 
+function VersionSelector({ versions, selectedVersion, onSelect }) {
+  if (!versions || versions.length < 2) return null;
+  return (
+    <select
+      value={selectedVersion}
+      onChange={(e) => onSelect(Number(e.target.value))}
+      style={{ fontSize: "0.8rem", padding: "2px 4px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text-primary)" }}
+    >
+      {versions.map((v) => (
+        <option key={v.version} value={v.version}>
+          v{v.version} — {fmtDate(v.generated_at?.slice(0, 10))}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export default function SiteReport() {
   const [sites, setSites] = useState([]);
   const [allReports, setAllReports] = useState([]);
@@ -31,6 +48,8 @@ export default function SiteReport() {
   const [runningTasks, setRunningTasks] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [viewing, setViewing] = useState(null);
+  const [versions, setVersions] = useState(null);
+  const [selectedVersion, setSelectedVersion] = useState(null);
   const [error, setError] = useState("");
   const prevCount = useRef(0);
 
@@ -72,16 +91,33 @@ export default function SiteReport() {
     }
   };
 
-  const handleView = (id, siteCode) => {
+  const handleView = async (id, siteCode) => {
     if (viewing?.id === id) {
       setViewing(null);
+      setVersions(null);
       return;
     }
-    getSiteReport(siteCode).then((report) => {
+    try {
+      const [report, vers] = await Promise.all([
+        getSiteReport(siteCode),
+        getSiteReportVersions(siteCode),
+      ]);
       setViewing({ id, report_text: report.report_text, generated_at: report.generated_at, version: report.version });
-    }).catch(() => {
+      setVersions(vers.versions || []);
+      setSelectedVersion(report.version);
+    } catch {
       setViewing({ id, report_text: "Error loading report", generated_at: "", version: 0 });
-    });
+    }
+  };
+
+  const handleVersionChange = async (siteCode, version) => {
+    setSelectedVersion(version);
+    try {
+      const report = await getSiteReport(siteCode, version);
+      setViewing((prev) => ({ ...prev, report_text: report.report_text, generated_at: report.generated_at, version: report.version }));
+    } catch {
+      setViewing((prev) => ({ ...prev, report_text: "Error loading report" }));
+    }
   };
 
   return (
@@ -145,7 +181,11 @@ export default function SiteReport() {
                           {viewing?.id === r.id ? "▲" : "▼"}
                         </button>
                         {viewing?.id === r.id && (
-                          <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>v{viewing.version}</div>
+                          <VersionSelector
+                            versions={versions}
+                            selectedVersion={selectedVersion}
+                            onSelect={(v) => handleVersionChange(r.site_code, v)}
+                          />
                         )}
                       </div>
                     </td>

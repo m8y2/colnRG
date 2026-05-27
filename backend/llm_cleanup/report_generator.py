@@ -31,7 +31,7 @@ DO_API = "https://api.digitalocean.com/v2"
 
 from config import PER_PAGE, RATE_LIMIT_DELAY
 from database import get_connection
-from llm_cleanup.report_prompts import COLN_FACTFILE, SITE_ORDER_TEXT, SITE_REPORT_PROMPT, ROUND_REPORT_PROMPT
+from llm_cleanup.report_prompts import COLN_FACTFILE, SITE_ORDER_TEXT, SITE_ORDER_UPSTREAM_TO_DOWNSTREAM, SITE_REPORT_PROMPT, ROUND_REPORT_PROMPT
 
 
 def do_headers():
@@ -255,12 +255,31 @@ def get_site_name(site_code):
     return r[0] if r else site_code
 
 
+def get_site_location_context(site_code):
+    try:
+        idx = SITE_ORDER_UPSTREAM_TO_DOWNSTREAM.index(site_code)
+    except ValueError:
+        return ""
+    parts = []
+    if idx > 0:
+        up_code = SITE_ORDER_UPSTREAM_TO_DOWNSTREAM[idx - 1]
+        up_name = get_site_name(up_code)
+        parts.append(f"{up_code} ({up_name}) upstream")
+    if idx < len(SITE_ORDER_UPSTREAM_TO_DOWNSTREAM) - 1:
+        down_code = SITE_ORDER_UPSTREAM_TO_DOWNSTREAM[idx + 1]
+        down_name = get_site_name(down_code)
+        parts.append(f"{down_code} ({down_name}) downstream")
+    if parts:
+        return f"This site sits between {' and '.join(parts)} on the River Coln."
+    return ""
+
 def generate_site_report(site_code, progress_callback=None, ip=None):
     if progress_callback:
         progress_callback(5, "Building site data context")
     site_name = get_site_name(site_code)
+    site_location_context = get_site_location_context(site_code)
     entries_text = build_site_data(site_code)
-    prompt = SITE_REPORT_PROMPT.format(site_code=site_code, site_name=site_name, entries=entries_text, factfile=COLN_FACTFILE, site_order=SITE_ORDER_TEXT)
+    prompt = SITE_REPORT_PROMPT.format(site_code=site_code, site_name=site_name, site_location_context=site_location_context, entries=entries_text, factfile=COLN_FACTFILE, site_order=SITE_ORDER_TEXT)
     if progress_callback:
         progress_callback(10, "Data context ready")
     if ip:

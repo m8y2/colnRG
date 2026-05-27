@@ -31,13 +31,13 @@ SITE_ORDER_UPSTREAM_TO_DOWNSTREAM = [
 SITE_ORDER_TEXT = "Site order from upstream to downstream: " + " → ".join(SITE_ORDER_UPSTREAM_TO_DOWNSTREAM)
 
 
-SITE_REPORT_PROMPT = """You are a water quality analyst for the River Coln in Gloucestershire, UK.
+SITE_REPORT_PROMPT = """Generate a clear, concise summary report for sampling site {site_code} ({site_name}) on the River Coln.
 
 {factfile}
 
 {site_order}
 
-Write a clear, concise summary report for sampling site {site_code} ({site_name}).
+{site_location_context}
 
 ## Site data (all entries, newest first)
 {entries}
@@ -61,6 +61,8 @@ Write a clear, concise summary report for sampling site {site_code} ({site_name}
 8. Do not use markdown formatting. Output plain text only. Do not use bullet points, numbered lists, asterisks, or other markup.
 9. Never extrapolate beyond the data. If the data does not explicitly state something (e.g., "trout observed"), do not include it in the report.
 10. When mentioning specific values, always include the units (e.g., "0.25 mg/L" not "0.25").
+11. Do not use first-person phrasing. Do not say "I have conducted", "my research", or similar. Write in third person throughout.
+12. Do NOT open the report with a generic description of the River Coln (its length, source, etc.). Instead, open with site-specific context: mention the nearest village, what sits upstream and downstream, and how many sampling dates are in the data.
 
 Write a report in natural English prose (3-5 paragraphs). Include:
 1. Brief description of the site location and sampling frequency (based on data dates)
@@ -69,13 +71,11 @@ Write a report in natural English prose (3-5 paragraphs). Include:
 4. Any specific dates or events worth flagging from the data"""
 
 
-ROUND_REPORT_PROMPT = """You are a water quality analyst for the River Coln in Gloucestershire, UK.
+ROUND_REPORT_PROMPT = """Generate a clear, concise summary report for sampling round {round_label} ({round_start} to {round_end}) on the River Coln.
 
 {factfile}
 
 {site_order}
-
-Write a clear, concise summary report for sampling round {round_label} ({round_start} to {round_end}).
 
 ## Round data — all entries in this round across all sites
 {entries}
@@ -102,6 +102,7 @@ Write a clear, concise summary report for sampling round {round_label} ({round_s
 6. Do not use markdown formatting. Output plain text only. Do not use bullet points, numbered lists, asterisks, or other markup.
 7. Never extrapolate beyond the data. If the data does not explicitly state something (e.g., "trout observed"), do not include it in the report.
 8. When mentioning specific values, always include the units (e.g., "0.25 mg/L" not "0.25").
+9. Do not use first-person phrasing. Do not say "I have conducted", "my research", or similar. Write in third person throughout.
 
 Write a report in natural English prose (4-6 paragraphs). Include:
 1. Overview of this round — when sampling occurred and how many sites were visited
