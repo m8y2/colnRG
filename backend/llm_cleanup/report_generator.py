@@ -246,13 +246,8 @@ def build_round_data(round_label, round_start, round_end):
 
 
 def get_site_name(site_code):
-    conn = get_connection()
-    r = conn.execute(
-        "SELECT DISTINCT w3w FROM entries WHERE w3w_site_code = ? AND w3w IS NOT NULL AND w3w != '' LIMIT 1",
-        (site_code,)
-    ).fetchone()
-    conn.close()
-    return r[0] if r else site_code
+    from sync import SITE_CODE_MAP
+    return SITE_CODE_MAP.get(site_code, site_code)
 
 
 def get_site_location_context(site_code):
