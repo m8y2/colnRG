@@ -98,15 +98,15 @@ export default function SiteMap({ sites, darkMode }) {
 
       const lblLat = lat;
       const lblLng = lng + 0.008;
-      const callout = L.polyline([[lat, lng], [lblLat, lblLng]], { className: "dark-mode-callout" },
-color: "var(--callout-color)"
+      const callout = L.polyline([[lat, lng], [lblLat, lblLng]], {
+        color: "var(--callout-color)",
         weight: 1.5,
         dashArray: "3 3",
         opacity: 0.7,
       });
       group.addLayer(callout);
 
-      const lbl = L.marker([lblLat, lblLng], { className: "dark-mode-label" },
+      const lbl = L.marker([lblLat, lblLng], {
         icon: L.divIcon({
           className: "",
           html: `<div style="display:inline-block;white-space:nowrap;font-size:11px;font-weight:600;background:var(--label-bg);padding:2px 7px;border-radius:4px;border:1px solid var(--label-border);box-shadow:0 1px 3px var(--label-shadow)">${site.code} — ${site.name}</div>`,

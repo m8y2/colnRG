@@ -26,9 +26,9 @@ function ProgressCard({ task }) {
 export default function RoundReport() {
   const [rounds, setRounds] = useState([]);
   const [allReports, setAllReports] = useState([]);
-  const [expandedReport, setExpandedReport] = useState(null);
   const [selectedRound, setSelectedRound] = useState("");
   const [runningTasks, setRunningTasks] = useState([]);
+  const [generating, setGenerating] = useState(false);
   const [viewing, setViewing] = useState(null);
   const [error, setError] = useState("");
   const prevCount = useRef(0);
@@ -40,7 +40,6 @@ export default function RoundReport() {
     });
   }, []);
 
-  // Poll status + refresh reports on completion
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
@@ -49,9 +48,10 @@ export default function RoundReport() {
         if (cancelled) return;
         const roundTasks = (status.running || []).filter((t) => t.type === "round");
         setRunningTasks(roundTasks);
-        if (prevCount.current > 0 && roundTasks.length === 0) {
+        if (roundTasks.length === 0 && prevCount.current > 0) {
           const r = await getAllRoundReports();
           if (!cancelled) setAllReports(r.reports || []);
+          setGenerating(false);
         }
         prevCount.current = roundTasks.length;
       } catch {}
@@ -67,31 +67,25 @@ export default function RoundReport() {
     const round = rounds.find((r) => String(r.round) === selectedRound);
     if (!round) return;
     setError("");
+    setGenerating(true);
     try {
       await triggerRoundReport(`Round ${round.round}`, round.start, round.end);
     } catch (e) {
       setError(e.message);
+      setGenerating(false);
     }
   };
 
-  const handleView = async (id, roundLabel) => {
-    if (expandedReport === id) {
-      setExpandedReport(null);
+  const handleView = (id, roundLabel) => {
+    if (viewing?.id === id) {
+      setViewing(null);
       return;
     }
-    setExpandedReport(id);
-    try {
-      const report = await getRoundReport(roundLabel);
+    getRoundReport(roundLabel).then((report) => {
       setViewing({ id, report_text: report.report_text, generated_at: report.generated_at, version: report.version });
-    } catch {
+    }).catch(() => {
       setViewing({ id, report_text: "Error loading report", generated_at: "", version: 0 });
-    }
-  };
-    if (viewing?.id === id) { setViewing(null); return; }
-    try {
-      const report = await getRoundReport(roundLabel);
-      setViewing({ id, report_text: report.report_text, generated_at: report.generated_at, version: report.version });
-    } catch { setViewing({ id, report_text: "Error loading report", generated_at: "", version: 0 }); }
+    });
   };
 
   return (
@@ -112,7 +106,7 @@ export default function RoundReport() {
               ))}
             </select>
           </label>
-          <button className="sync-btn" onClick={handleGenerate} disabled={runningTasks.length > 0 || !selectedRound}>
+          <button className="sync-btn" onClick={handleGenerate} disabled={generating || runningTasks.length > 0 || !selectedRound}>
             Generate
           </button>
         </div>
@@ -120,7 +114,7 @@ export default function RoundReport() {
 
       {runningTasks.length > 0 && (
         <div className="chart-section">
-          <h2 className="chart-section-heading" style={{ color: "var(--text-primary)" }}>{runningTasks.length > 0 ? `Generating (${runningTasks.length} running)` : "No reports in progress"
+          <h2 className="chart-section-heading" style={{ color: "var(--text-primary)" }}>Generating ({runningTasks.length} running)</h2>
           {runningTasks.map((t) => (
             <ProgressCard key={t.id} task={t} />
           ))}
@@ -149,27 +143,25 @@ export default function RoundReport() {
                     <td><strong>{r.round_label}</strong></td>
                     <td>v{r.version}</td>
                     <td>{fmtDate(r.generated_at?.slice(0, 10))}</td>
-                    <td style={{ maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#6b7280", fontSize: "0.8rem" }}>
+                    <td style={{ maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-muted)", fontSize: "0.8rem" }}>
                       {r.preview?.slice(0, 100)}…
                     </td>
                     <td>
-<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <button className="sync-btn" style={{ padding: "4px 10px", fontSize: "0.8rem" }} onClick={() => handleView(r.id, r.round_label)}>
-                            {expandedReport === r.id ? "▲" : "▼"}
-                          </button>
-                          {expandedReport === r.id && (
-                            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>v{viewing?.version || r.version}</div>
-                          )}
-                        </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <button className="sync-btn" style={{ padding: "4px 10px", fontSize: "0.8rem" }} onClick={() => handleView(r.id, r.round_label)}>
+                          {viewing?.id === r.id ? "▲" : "▼"}
+                        </button>
+                        {viewing?.id === r.id && (
+                          <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>v{viewing.version}</div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-{expandedReport === r.id && viewing?.id === r.id && (
-                  <tr>
-                    <td colSpan="5">
-                      <div className="report-text" style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+                {allReports.map((r) => viewing?.id === r.id && (
+                  <tr key={`expanded-${r.id}`}>
+                    <td colSpan="5" style={{ padding: "12px 16px" }}>
+                      <div className="report-text">
                         <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: 8 }}>
                           v{viewing.version} — {fmtDate(viewing.generated_at?.slice(0, 10))}
                         </p>
@@ -179,7 +171,9 @@ export default function RoundReport() {
                       </div>
                     </td>
                   </tr>
-                )}
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
