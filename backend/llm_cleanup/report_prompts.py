@@ -31,7 +31,16 @@ SITE_ORDER_UPSTREAM_TO_DOWNSTREAM = [
 SITE_ORDER_TEXT = "Site order from upstream to downstream: " + " → ".join(SITE_ORDER_UPSTREAM_TO_DOWNSTREAM)
 
 
-SITE_REPORT_PROMPT = """You are a water quality analyst for the River Coln in Gloucestershire, UK.
+MONITORING_CONTEXT = """## Monitoring program context (accurate facts — do not contradict these)
+- The Coln River Guardians monitoring program began on 6 June 2025
+- As of the latest data there have been 61 unique sampling dates across the project
+- 376 water quality samples have been collected across 26 sampling sites
+- Each sample measures up to 7 parameters: phosphate, ammonia, nitrate, turbidity, dissolved oxygen, conductivity, water depth
+- Sampling is conducted by volunteers on a roughly weekly rotation
+- Individual sites average 8–9 sampling rounds each, spanning approximately 10–11 months"""
+
+
+SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for sampling site {site_code} ({site_name}) on the River Coln.
 
 {factfile}
 
@@ -39,9 +48,9 @@ SITE_REPORT_PROMPT = """You are a water quality analyst for the River Coln in Gl
 
 {site_location_context}
 
-Write a clear, concise summary report for sampling site {site_code} ({site_name}).
+{monitoring_context}
 
-## Site data (all entries, newest first)
+## Site data (all entries for this site, newest first)
 {entries}
 
 ## WFD (Water Framework Directive) thresholds (Lowland High Alkalinity)
@@ -52,32 +61,36 @@ Write a clear, concise summary report for sampling site {site_code} ({site_name}
 - Turbidity: High<5, Good<10, Moderate<20, Poor≥20 (NTU)
 - Conductivity: typical range 300-1200 µS/cm
 
-## CRITICAL RULES
-- Write only about THIS specific site. Do not describe the entire river system.
-- Base all statements on the site data above. Never invent or guess data.
-- Never invent monitoring patterns (e.g. do not say "sampled daily for 6 weeks" unless the data explicitly shows daily samples over 6 weeks).
-- Never speculate about causes of water quality.
-- Never mention landowners.
-- Never reference the River Avon.
-- Never use first person (I, my, we, our). Write in third person.
-- Cite specific values with units (e.g. "0.25 mg/L").
-- No markdown formatting — plain text only, no bullet points.
-- The factfile is background context only. Do not recite it. Do not list discharge rates or geological features unless directly relevant to this site's data.
+## RULES — YOU MUST FOLLOW THESE
+1. This report is only about {site_code}. Do not describe the entire river or mention other sites.
+2. Base all statements on the site data above. Never invent values, dates, or trends.
+3. Never mention landowners. Do not reference landowner information.
+4. Never reference the River Avon. The Coln joins the Thames, not the Avon.
+5. Never mention sewage, STW, treatment works, or pollution sources unless the specific site's data explicitly contains such a mention.
+6. Never mention fishing, trout, grayling, or wildlife. The project is a water quality monitoring scheme, not an ecological survey.
+7. Never invent monitoring patterns. Do not say "sampled daily" or "sampled weekly for X weeks" unless the data explicitly shows that frequency.
+8. Never speculate about causes of water quality. Do not say "may be due to agricultural activities" or similar.
+9. Never use first person (I, my, we, our). Write as a neutral third-party report.
+10. Cite specific values with units (e.g. "0.25 mg/L").
+11. No markdown formatting — plain text only, no bullet points.
+12. The factfile is background context only. Do not recite it. Do not list discharge rates, geology, or village names unless directly relevant to this site's data.
+13. The Monitoring program context section above contains accurate facts about the project. Use it for project-level context. Do not contradict it.
+14. All dates must be exact from the data. Do not invent or approximate dates.
 
 Write a report in natural English prose (3-5 paragraphs). Include:
-1. Brief description of the site location and sampling dates
-2. Overall water quality assessment — which WFD band each measured chemical falls in
-3. Notable patterns or changes visible in the data, citing specific dates and values
-4. Any specific dates or events worth flagging"""
+1. Brief description of the site location (relative to upstream/downstream neighbours) and its sampling dates
+2. WFD band assessment for each chemical measured at this site
+3. Notable patterns visible in this site's data, citing specific dates and values
+4. Any specific dates worth flagging from this site's data"""
 
 
-ROUND_REPORT_PROMPT = """You are a water quality analyst for the River Coln in Gloucestershire, UK.
+ROUND_REPORT_PROMPT = """Write a clear, concise water quality summary for sampling round {round_label} ({round_start} to {round_end}) on the River Coln.
 
 {factfile}
 
 {site_order}
 
-Write a clear, concise summary report for sampling round {round_label} ({round_start} to {round_end}).
+{monitoring_context}
 
 ## Round data — all entries in this round across all sites
 {entries}
@@ -95,16 +108,18 @@ Write a clear, concise summary report for sampling round {round_label} ({round_s
 - Dissolved oxygen: High≥7, Good≥5, Moderate≥4, Poor<4 (mg/L)
 - Turbidity: High<5, Good<10, Moderate<20, Poor≥20 (NTU)
 
-## CRITICAL RULES
-- Base all statements on the round data above. Never invent or guess data.
-- Never invent monitoring patterns or sampling frequencies.
-- Never speculate about causes of water quality.
-- Never reference the River Avon.
-- Comparisons between rounds must use the actual averages and date ranges provided. Do not invent comparison periods.
-- Never use first person (I, my, we, our). Write in third person.
-- Cite specific values with units (e.g. "0.25 mg/L").
-- No markdown formatting — plain text only, no bullet points.
-- The factfile is background context only. Do not recite it.
+## RULES — YOU MUST FOLLOW THESE
+1. Base all statements on the round data above. Never invent values, dates, or trends.
+2. Never mention sewage, STW, or treatment works unless the data explicitly mentions them.
+3. Never mention fishing, trout, or wildlife. This is a water quality monitoring scheme.
+4. Never speculate about causes of water quality.
+5. Never reference the River Avon. The Coln joins the Thames, not the Avon.
+6. Comparisons between rounds must use the actual date ranges from the data provided.
+7. Never use first person (I, my, we, our). Write as a neutral third-party report.
+8. Cite specific values with units (e.g. "0.25 mg/L").
+9. No markdown formatting — plain text only, no bullet points.
+10. The factfile is background context only. Do not recite it.
+11. All dates must be exact from the data. Do not invent or approximate dates.
 
 Write a report in natural English prose (4-6 paragraphs). Include:
 1. Overview of this round — when sampling occurred and how many sites were visited

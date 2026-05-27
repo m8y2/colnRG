@@ -31,7 +31,7 @@ DO_API = "https://api.digitalocean.com/v2"
 
 from config import PER_PAGE, RATE_LIMIT_DELAY
 from database import get_connection
-from llm_cleanup.report_prompts import COLN_FACTFILE, SITE_ORDER_TEXT, SITE_ORDER_UPSTREAM_TO_DOWNSTREAM, SITE_REPORT_PROMPT, ROUND_REPORT_PROMPT
+from llm_cleanup.report_prompts import COLN_FACTFILE, SITE_ORDER_TEXT, SITE_ORDER_UPSTREAM_TO_DOWNSTREAM, SITE_REPORT_PROMPT, ROUND_REPORT_PROMPT, MONITORING_CONTEXT
 
 
 def do_headers():
@@ -279,7 +279,7 @@ def generate_site_report(site_code, progress_callback=None, ip=None):
     site_name = get_site_name(site_code)
     site_location_context = get_site_location_context(site_code)
     entries_text = build_site_data(site_code)
-    prompt = SITE_REPORT_PROMPT.format(site_code=site_code, site_name=site_name, site_location_context=site_location_context, entries=entries_text, factfile=COLN_FACTFILE, site_order=SITE_ORDER_TEXT)
+    prompt = SITE_REPORT_PROMPT.format(site_code=site_code, site_name=site_name, site_location_context=site_location_context, entries=entries_text, factfile=COLN_FACTFILE, site_order=SITE_ORDER_TEXT, monitoring_context=MONITORING_CONTEXT)
     if progress_callback:
         progress_callback(10, "Data context ready")
     if ip:
@@ -294,7 +294,7 @@ def generate_round_report(round_label, round_start, round_end, progress_callback
     prompt = ROUND_REPORT_PROMPT.format(
         round_label=round_label, round_start=round_start, round_end=round_end,
         entries=entries_text, averages=avg_line, previous_averages=prev_line,
-        factfile=COLN_FACTFILE, site_order=SITE_ORDER_TEXT,
+        factfile=COLN_FACTFILE, site_order=SITE_ORDER_TEXT, monitoring_context=MONITORING_CONTEXT,
     )
     if progress_callback:
         progress_callback(10, "Data context ready")
