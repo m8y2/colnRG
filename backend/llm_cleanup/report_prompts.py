@@ -51,13 +51,8 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 ## Site data (all entries for this site, newest first)
 {entries}
 
-## WFD (Water Framework Directive) thresholds (Lowland High Alkalinity)
-- Phosphate: High=0.1, Good=0.2, Moderate=0.4, Poor=0.7 (mg/L)
-- Ammonia: High=0.3, Good=0.6, Moderate=1.1, Poor=2.5 (mg/L)
-- Nitrate: High=5.6, Good=11.3, Moderate=16.9, Poor=22.6 (mg/L)
-- Dissolved oxygen: High≥7, Good≥5, Moderate≥4, Poor<4 (mg/L)
-- Turbidity: High<5, Good<10, Moderate<20, Poor≥20 (NTU)
-- Conductivity: typical range 300-1200 µS/cm
+## WFD (Water Framework Directive) thresholds (Lowland High Alkalinity) — only for chemicals present in this site's data
+{wfd_thresholds}
 
 ## RULES — YOU MUST FOLLOW THESE
 1. This report is only about {site_code}. Do not describe the entire river or mention other sites.
@@ -74,8 +69,7 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 12. The Monitoring program context section above contains accurate facts about the project. Use it for project-level context. Do not contradict it.
 13. All dates must be exact from the data. Do not invent or approximate dates.
 14. The only valid identifier for this site is the code {site_code}. Never use any other name or label.
-15. Never include a chemical that has no readings in the site data. If dissolved oxygen, conductivity, or any other field is absent from all entries, do not mention it. Never use WFD threshold values as actual measurements.
-16. The River Coln has no tributaries. Do not mention any tributaries, confluences, or side streams.
+15. The River Coln has no tributaries. Do not mention any tributaries, confluences, or side streams.
 
 Write a report in natural English prose (3-5 paragraphs). Include:
 1. Brief description of the site location (relative to upstream/downstream neighbours) and its sampling dates

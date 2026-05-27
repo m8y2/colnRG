@@ -158,6 +158,42 @@ def copy_from_droplet(ip, remote_path):
     return r.stdout
 
 
+ALL_WFD = {
+    "phosphate": "- Phosphate: High=0.1, Good=0.2, Moderate=0.4, Poor=0.7 (mg/L)",
+    "ammonia": "- Ammonia: High=0.3, Good=0.6, Moderate=1.1, Poor=2.5 (mg/L)",
+    "nitrate": "- Nitrate: High=5.6, Good=11.3, Moderate=16.9, Poor=22.6 (mg/L)",
+    "dissolved_oxygen": "- Dissolved oxygen: High≥7, Good≥5, Moderate≥4, Poor<4 (mg/L)",
+    "turbidity": "- Turbidity: High<5, Good<10, Moderate<20, Poor≥20 (NTU)",
+    "conductivity": "- Conductivity: typical range 300-1200 µS/cm",
+}
+
+def _present_chemicals(site_code):
+    conn = get_connection()
+    fields = ["phosphate_level", "ammonia_level", "nitrate_level",
+              "dissolved_oxygen", "turbidity", "conductivity"]
+    present = []
+    for col in fields:
+        row = conn.execute(
+            f"SELECT 1 FROM entries WHERE w3w_site_code = ? AND {col} IS NOT NULL AND {col} != '' AND {col} != 'None' LIMIT 1",
+            (site_code,)
+        ).fetchone()
+        if row:
+            present.append(col)
+    conn.close()
+    return present
+
+CHEM_KEY_MAP = {
+    "phosphate_level": "phosphate", "ammonia_level": "ammonia",
+    "nitrate_level": "nitrate", "dissolved_oxygen": "dissolved_oxygen",
+    "turbidity": "turbidity", "conductivity": "conductivity",
+}
+
+def build_wfd_thresholds(site_code):
+    present = _present_chemicals(site_code)
+    keys = [CHEM_KEY_MAP[c] for c in present if c in CHEM_KEY_MAP]
+    lines = [ALL_WFD[k] for k in keys if k in ALL_WFD]
+    return "\n".join(lines)
+
 def build_site_data(site_code):
     conn = get_connection()
     rows = conn.execute(
@@ -245,11 +281,6 @@ def build_round_data(round_label, round_start, round_end):
     return "\n".join(lines), avg_line, prev_line
 
 
-def get_site_name(site_code):
-    from sync import SITE_CODE_MAP
-    return SITE_CODE_MAP.get(site_code, site_code)
-
-
 def get_site_location_context(site_code):
     try:
         idx = SITE_ORDER_UPSTREAM_TO_DOWNSTREAM.index(site_code)
@@ -269,10 +300,10 @@ def get_site_location_context(site_code):
 def generate_site_report(site_code, progress_callback=None, ip=None):
     if progress_callback:
         progress_callback(5, "Building site data context")
-    site_name = get_site_name(site_code)
     site_location_context = get_site_location_context(site_code)
     entries_text = build_site_data(site_code)
-    prompt = SITE_REPORT_PROMPT.format(site_code=site_code, site_location_context=site_location_context, entries=entries_text, site_order=SITE_ORDER_TEXT, monitoring_context=MONITORING_CONTEXT)
+    wfd_thresholds = build_wfd_thresholds(site_code)
+    prompt = SITE_REPORT_PROMPT.format(site_code=site_code, site_location_context=site_location_context, entries=entries_text, wfd_thresholds=wfd_thresholds, site_order=SITE_ORDER_TEXT, monitoring_context=MONITORING_CONTEXT)
     if progress_callback:
         progress_callback(10, "Data context ready")
     if ip:
