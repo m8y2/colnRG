@@ -780,6 +780,15 @@ body {
   gap: 6px;
 }
 
+.version-select {
+  position: relative;
+}
+
+.version-select .chemical-select-menu {
+  background: var(--bg-card) !important;
+  z-index: 999 !important;
+}
+
 .dark .recharts-tooltip-label {
   color: var(--text) !important;
 }
