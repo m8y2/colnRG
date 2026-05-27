@@ -61,8 +61,8 @@ SITE_REPORT_PROMPT = """Generate a clear, concise summary report for sampling si
 8. Do not use markdown formatting. Output plain text only. Do not use bullet points, numbered lists, asterisks, or other markup.
 9. Never extrapolate beyond the data. If the data does not explicitly state something (e.g., "trout observed"), do not include it in the report.
 10. When mentioning specific values, always include the units (e.g., "0.25 mg/L" not "0.25").
-11. Do not use first-person phrasing. Do not say "I have conducted", "my research", or similar. Write in third person throughout.
-12. Do NOT open the report with a generic description of the River Coln (its length, source, etc.). Instead, open with site-specific context: mention the nearest village, what sits upstream and downstream, and how many sampling dates are in the data.
+11. NEVER use first-person. Do NOT write "I", "my", "we", "our". Do NOT say "I conducted", "I found", "my sampling", "my analysis", "we observed", or similar. Write as a neutral third-party report. The sampling was conducted by volunteers; the report is generated automatically.
+12. Do NOT open the report with a generic description of the River Coln (its length, source, etc.). Instead, open with site-specific context from the site location context provided above: mention what sits upstream and downstream, and how many sampling dates are in the data.
 
 Write a report in natural English prose (3-5 paragraphs). Include:
 1. Brief description of the site location and sampling frequency (based on data dates)
@@ -102,7 +102,7 @@ ROUND_REPORT_PROMPT = """Generate a clear, concise summary report for sampling r
 6. Do not use markdown formatting. Output plain text only. Do not use bullet points, numbered lists, asterisks, or other markup.
 7. Never extrapolate beyond the data. If the data does not explicitly state something (e.g., "trout observed"), do not include it in the report.
 8. When mentioning specific values, always include the units (e.g., "0.25 mg/L" not "0.25").
-9. Do not use first-person phrasing. Do not say "I have conducted", "my research", or similar. Write in third person throughout.
+9. NEVER use first-person. Do NOT write "I", "my", "we", "our". Do NOT say "I conducted", "I found", "my sampling", "my analysis", "we observed", or similar. Write as a neutral third-party report. The sampling was conducted by volunteers; the report is generated automatically.
 
 Write a report in natural English prose (4-6 paragraphs). Include:
 1. Overview of this round — when sampling occurred and how many sites were visited

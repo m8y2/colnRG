@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
-import { getStats, getSites, triggerSync, getSyncLog, clearCache } from "./api";
+import { getStats, getSites, triggerSync, getSyncLog, getReportStatus, clearCache } from "./api";
 import StatsCards from "./components/StatsCards";
 import ChemicalSelect from "./components/ChemicalSelect";
 import AnimatedSelect from "./components/AnimatedSelect";
@@ -28,10 +28,23 @@ export default function App() {
   const [sitesTab, setSitesTab] = useState("map");
   const [error, setError] = useState("");
   const [isDark, setIsDark] = useState(() => window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false);
+  const [reportRunningTasks, setReportRunningTasks] = useState([]);
 
   useEffect(() => {
     document.body.classList.toggle("dark", isDark);
   }, [isDark]);
+
+  useEffect(() => {
+    const tick = async () => {
+      try {
+        const status = await getReportStatus();
+        setReportRunningTasks(status.running || []);
+      } catch {}
+    };
+    tick();
+    const id = setInterval(tick, 2000);
+    return () => clearInterval(id);
+  }, []);
 
   const toggleTheme = () => setIsDark((d) => !d);
 
@@ -107,6 +120,25 @@ export default function App() {
       </header>
 
       {error && <div className="error">{error}</div>}
+
+      {reportRunningTasks.length > 0 && (
+        <div style={{ padding: "8px 16px", background: "var(--primary-bg)", borderBottom: "1px solid var(--border)", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 600, color: "var(--primary)" }}>Generating ({reportRunningTasks.length} running)</span>
+          {reportRunningTasks.filter((t) => t.type !== "infra").map((t) => (
+            <span key={t.id} style={{ color: "var(--text-secondary)" }}>
+              {t.identifier}: {t.progress < 0 ? "Failed" : `${t.progress}%`}
+              <span style={{ color: "var(--text-muted)", marginLeft: 4 }}>{t.message}</span>
+            </span>
+          ))}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            {reportRunningTasks.filter((t) => t.type !== "infra").map((t) => (
+              <div key={t.id} style={{ width: 80, height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ width: `${Math.max(0, t.progress)}%`, height: "100%", background: t.progress < 0 ? "var(--error)" : "var(--primary)", borderRadius: 3, transition: "width 0.5s ease" }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mobile-notice">Optimised for desktop — works on mobile</div>
 

@@ -3,27 +3,6 @@ import { getSites, getAllSiteReports, getSiteReport, getSiteReportVersions, trig
 import { fmtDate } from "../utils";
 import AnimatedSelect from "./AnimatedSelect";
 
-function ProgressCard({ task }) {
-  const pct = task.progress < 0 ? 0 : task.progress;
-  const barWidth = task.progress < 0 ? 100 : pct;
-  const isError = task.progress < 0;
-  const barColor = isError ? "var(--error)" : "var(--primary)";
-  return (
-    <div className="report-progress" style={{ marginBottom: 8, padding: "8px 12px", borderRadius: 6, background: isError ? "var(--error-bg)" : "var(--bg)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: "0.85rem" }}>
-        <span><strong>{task.identifier}</strong></span>
-        <span style={{ color: isError ? "var(--error-text)" : "var(--text-secondary)" }}>
-          {isError ? "Failed" : `${pct}%`}
-        </span>
-      </div>
-      <div style={{ height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
-        <div style={{ width: `${barWidth}%`, height: "100%", background: barColor, borderRadius: 3, transition: "width 0.5s ease" }} />
-      </div>
-      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{task.message}</div>
-    </div>
-  );
-}
-
 function VersionSelector({ versions, selectedVersion, onSelect }) {
   if (!versions || versions.length < 2) return null;
   const sorted = [...versions].sort((a, b) => a.version - b.version);
@@ -171,15 +150,6 @@ export default function SiteReport() {
           </button>
         </div>
       </div>
-
-      {runningTasks.length > 0 && (
-        <div className="chart-section">
-          <h2 className="chart-section-heading" style={{ color: "var(--text-primary)" }}>Generating ({runningTasks.length} running)</h2>
-          {runningTasks.map((t) => (
-            <ProgressCard key={t.id} task={t} />
-          ))}
-        </div>
-      )}
 
       <div className="chart-section">
         <h2 className="chart-section-heading">All Site Reports ({latestReports.length})</h2>
