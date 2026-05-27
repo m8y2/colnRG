@@ -52,6 +52,7 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 {entries}
 
 ## WFD (Water Framework Directive) thresholds (Lowland High Alkalinity) — only for chemicals present in this site's data
+To assess WFD band, compare the site's actual measured values against these thresholds. For example, if average phosphate is 0.15 mg/L and the thresholds are High≤0.1, Good≤0.2, the band would be "Good" for phosphate.
 {wfd_thresholds}
 
 ## RULES — YOU MUST FOLLOW THESE
@@ -62,7 +63,7 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 5. Never mention sewage, STW, treatment works, or pollution sources unless the specific site's data explicitly contains such a mention.
 6. Never mention fishing, trout, grayling, or wildlife. The project is a water quality monitoring scheme, not an ecological survey.
 7. Never invent monitoring patterns. Do not say "sampled daily" or "sampled weekly for X weeks" unless the data explicitly shows that frequency.
-8. Never speculate about causes or sources. Ban phrases like "may be due to", "suggests that", "could indicate", "might be related to", "possibly", "potentially", "likely caused by".
+8. Never speculate, recommend, or suggest anything. Ban phrases like "may be due to", "suggests that", "could indicate", "might be related to", "possibly", "potentially", "likely caused by", "warrants further investigation", "further monitoring", "would be necessary", "may indicate".
 9. Never use first person (I, my, we, our). Write as a neutral third-party report.
 10. Cite specific values with units (e.g. "0.25 mg/L"). Every claim about a chemical must include its exact measured value.
 11. No markdown formatting — plain text only, no bullet points.
