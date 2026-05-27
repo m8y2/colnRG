@@ -12,6 +12,7 @@ Usage:
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -32,6 +33,16 @@ DO_API = "https://api.digitalocean.com/v2"
 from config import PER_PAGE, RATE_LIMIT_DELAY
 from database import get_connection
 from llm_cleanup.report_prompts import SITE_ORDER_TEXT, SITE_ORDER_UPSTREAM_TO_DOWNSTREAM, SITE_REPORT_PROMPT, ROUND_REPORT_PROMPT, MONITORING_CONTEXT
+
+
+def _strip_markdown(text):
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*[\*\-\+]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*\d+\.\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\|", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 def do_headers():
@@ -358,6 +369,7 @@ def run_task_on_droplet(ip, report_type, prompt, identifier, progress_callback=N
     report_text = copy_from_droplet(ip, "/root/report.txt")
     if not report_text.strip():
         raise RuntimeError("Empty report generated")
+    report_text = _strip_markdown(report_text)
 
     if progress_callback:
         progress_callback(92, "Saving to database")
