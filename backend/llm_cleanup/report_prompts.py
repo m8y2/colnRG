@@ -52,7 +52,7 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 {entries}
 
 ## WFD (Water Framework Directive) thresholds (Lowland High Alkalinity) — only for chemicals present in this site's data
-To assess WFD band, compare the site's actual measured values against these thresholds. For example, if average phosphate is 0.15 mg/L and the thresholds are High≤0.1, Good≤0.2, the band would be "Good" for phosphate.
+To assess WFD band, compare the site's actual measured values against these thresholds. For example, if average phosphate is 0.15 mg/L, the bands are: High ≤0.1, Good ≤0.2, so the band is "Good" for phosphate.
 {wfd_thresholds}
 
 ## RULES — YOU MUST FOLLOW THESE
@@ -95,11 +95,12 @@ ROUND_REPORT_PROMPT = """Write a clear, concise water quality summary for sampli
 {previous_averages}
 
 ## WFD (Water Framework Directive) thresholds (Lowland High Alkalinity)
-- Phosphate: High=0.1, Good=0.2, Moderate=0.4, Poor=0.7 (mg/L)
-- Ammonia: High=0.3, Good=0.6, Moderate=1.1, Poor=2.5 (mg/L)
-- Nitrate: High=5.6, Good=11.3, Moderate=16.9, Poor=22.6 (mg/L)
-- Dissolved oxygen: High≥7, Good≥5, Moderate≥4, Poor<4 (mg/L)
-- Turbidity: High<5, Good<10, Moderate<20, Poor≥20 (NTU)
+To assess WFD band, compare the round's actual measured values against these thresholds.
+- Phosphate: High band ≤0.1, Good ≤0.2, Moderate ≤0.4, Poor ≤0.7 (mg/L)
+- Ammonia: High band ≤0.3, Good ≤0.6, Moderate ≤1.1, Poor ≤2.5 (mg/L)
+- Nitrate: High band ≤5.6, Good ≤11.3, Moderate ≤16.9, Poor ≤22.6 (mg/L)
+- Dissolved oxygen: High band ≥7, Good ≥5, Moderate ≥4, Poor <4 (mg/L)
+- Turbidity: High band <5, Good <10, Moderate <20, Poor ≥20 (NTU)
 
 ## RULES — YOU MUST FOLLOW THESE
 1. Base all statements on the round data above. Never invent values, dates, or trends.

@@ -159,11 +159,11 @@ def copy_from_droplet(ip, remote_path):
 
 
 ALL_WFD = {
-    "phosphate": "- Phosphate: High=0.1, Good=0.2, Moderate=0.4, Poor=0.7 (mg/L)",
-    "ammonia": "- Ammonia: High=0.3, Good=0.6, Moderate=1.1, Poor=2.5 (mg/L)",
-    "nitrate": "- Nitrate: High=5.6, Good=11.3, Moderate=16.9, Poor=22.6 (mg/L)",
-    "dissolved_oxygen": "- Dissolved oxygen: High≥7, Good≥5, Moderate≥4, Poor<4 (mg/L)",
-    "turbidity": "- Turbidity: High<5, Good<10, Moderate<20, Poor≥20 (NTU)",
+    "phosphate": "- Phosphate: High band ≤0.1, Good ≤0.2, Moderate ≤0.4, Poor ≤0.7 (mg/L)",
+    "ammonia": "- Ammonia: High band ≤0.3, Good ≤0.6, Moderate ≤1.1, Poor ≤2.5 (mg/L)",
+    "nitrate": "- Nitrate: High band ≤5.6, Good ≤11.3, Moderate ≤16.9, Poor ≤22.6 (mg/L)",
+    "dissolved_oxygen": "- Dissolved oxygen: High band ≥7, Good ≥5, Moderate ≥4, Poor <4 (mg/L)",
+    "turbidity": "- Turbidity: High band <5, Good <10, Moderate <20, Poor ≥20 (NTU)",
     "conductivity": "- Conductivity: typical range 300-1200 µS/cm",
 }
 
@@ -286,15 +286,15 @@ def get_site_location_context(site_code):
         idx = SITE_ORDER_UPSTREAM_TO_DOWNSTREAM.index(site_code)
     except ValueError:
         return ""
-    parts = []
+    dirs = []
     if idx > 0:
         up_code = SITE_ORDER_UPSTREAM_TO_DOWNSTREAM[idx - 1]
-        parts.append(f"{up_code} upstream")
+        dirs.append(f"downstream of {up_code}")
     if idx < len(SITE_ORDER_UPSTREAM_TO_DOWNSTREAM) - 1:
         down_code = SITE_ORDER_UPSTREAM_TO_DOWNSTREAM[idx + 1]
-        parts.append(f"{down_code} downstream")
-    if parts:
-        return f"This site sits between {' and '.join(parts)} on the River Coln."
+        dirs.append(f"upstream of {down_code}")
+    if dirs:
+        return f"On the River Coln, this site is located {' and '.join(dirs)}."
     return ""
 
 def generate_site_report(site_code, progress_callback=None, ip=None):
