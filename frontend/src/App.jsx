@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import { getStats, getSites, triggerSync, getSyncLog, getReportStatus, clearCache } from "./api";
 import StatsCards from "./components/StatsCards";
 import ChemicalSelect from "./components/ChemicalSelect";
@@ -82,7 +82,7 @@ export default function App() {
     setReportRunningTasks((prev) => [...prev, task]);
   }, []);
 
-  const completedCount = completedTasks.length;
+
 
   const toggleTheme = () => setIsDark((d) => !d);
 
