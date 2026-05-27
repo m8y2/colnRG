@@ -52,7 +52,6 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 {entries}
 
 ## WFD (Water Framework Directive) thresholds (Lowland High Alkalinity) — only for chemicals present in this site's data
-To assess WFD band, compare the site's actual measured values against these thresholds. For example, if average phosphate is 0.15 mg/L, the bands are: High ≤0.1, Good ≤0.2, so the band is "Good" for phosphate.
 {wfd_thresholds}
 
 ## RULES — YOU MUST FOLLOW THESE
@@ -63,7 +62,7 @@ To assess WFD band, compare the site's actual measured values against these thre
 5. Never mention sewage, STW, treatment works, or pollution sources unless the specific site's data explicitly contains such a mention.
 6. Never mention fishing, trout, grayling, or wildlife. The project is a water quality monitoring scheme, not an ecological survey.
 7. Never invent monitoring patterns. Do not say "sampled daily" or "sampled weekly for X weeks" unless the data explicitly shows that frequency.
-8. Write only verifiable facts. Never include opinions, recommendations, suggestions, or speculation. Do not use phrases like "suggests", "may", "might", "could", "potentially", "warrants", "recommended", "necessary", "likely".
+8. Never speculate. Write only verifiable facts. No opinions, no "suggests", "may", "could", "recommended", "warrants".
 9. Never use first person (I, my, we, our). Write as a neutral third-party report.
 10. Cite specific values with units (e.g. "0.25 mg/L"). Every claim about a chemical must include its exact measured value.
 11. No markdown formatting — plain text only, no bullet points.
@@ -72,13 +71,11 @@ To assess WFD band, compare the site's actual measured values against these thre
 14. The only valid identifier for this site is the code {site_code}. Never use any other name or label.
 15. The River Coln has no tributaries. Do not mention any tributaries, confluences, or side streams.
 
-Write in a direct, factual tone. Every sentence must state a verifiable fact from the data.
-
 Write a report in natural English prose (3-5 paragraphs). Include:
-1. Where this site sits on the river and its sampling period
-2. WFD band per chemical with its average value. Format: "[Chemical]: [band] band (average [value] [unit])".
-3. Patterns visible in this site's data, citing specific dates and values
-4. Any notable individual readings with dates"""
+1. Brief description of the site location and its sampling dates
+2. WFD band assessment for each chemical measured at this site
+3. Notable patterns visible in this site's data, citing specific dates and values
+4. Any specific dates worth flagging from this site's data"""
 
 
 ROUND_REPORT_PROMPT = """Write a clear, concise water quality summary for sampling round {round_label} ({round_start} to {round_end}) on the River Coln.
@@ -108,7 +105,7 @@ To assess WFD band, compare the round's actual measured values against these thr
 1. Base all statements on the round data above. Never invent values, dates, or trends.
 2. Never mention sewage, STW, or treatment works unless the data explicitly mentions them.
 3. Never mention fishing, trout, or wildlife. This is a water quality monitoring scheme.
-4. Write only verifiable facts. Never include opinions, recommendations, suggestions, or speculation.
+4. Never speculate. Write only verifiable facts. No opinions, no "suggests", "may", "could".
 5. Never reference the River Avon. The Coln joins the Thames, not the Avon.
 6. Comparisons between rounds must use the actual date ranges from the data provided.
 7. Never use first person (I, my, we, our). Write as a neutral third-party report.
@@ -117,11 +114,9 @@ To assess WFD band, compare the round's actual measured values against these thr
 10. Never include a chemical that has no readings in the round data. Never use WFD threshold values as actual measurements.
 11. All dates must be exact from the data. Do not invent or approximate dates.
 
-Write in a direct, factual tone. Every sentence must state a verifiable fact from the data.
-
 Write a report in natural English prose (4-6 paragraphs). Include:
 1. Overview of this round — when sampling occurred and how many sites were visited
-2. Overall WFD band per chemical with its average value. Format: "[Chemical]: [band] band (average [value] [unit])".
+2. Overall water quality assessment — which WFD band each chemical falls in
 3. Comparison with the previous round — citing the actual averages and date ranges
 4. Standout sites or readings worth highlighting from the round data
-5. Summary of the round's key findings"""
+5. Summary assessment of river health in this period"""
