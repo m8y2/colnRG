@@ -170,10 +170,10 @@ export default function ColnLine({ darkMode }) {
               <line x1={CX} y1={y - 4} x2={CX} y2={y + 4} stroke="#d1d5db" strokeWidth={1.5} />
               <circle cx={CX} cy={y} r={r} fill="#2563eb" stroke="#fff" strokeWidth={2} />
               <g style={{ cursor: "pointer" }} onClick={() => handleClick(site.code, y, isLeft)}>
-                <text x={tx} y={y + 5} textAnchor={ta} fill="#1a56db" fontSize={13} fontWeight={700}>
+                <text x={tx} y={y + 5} textAnchor={ta} fill="#9ca3af" fontSize={13} fontWeight={600}>
                   {site.code}
                 </text>
-                <text x={tx} y={y - 10} textAnchor={ta} fill="#4b5563" fontSize={10}>
+                <text x={tx} y={y - 10} textAnchor={ta} fill="#9ca3af" fontSize={10}>
                   {site.name}
                 </text>
                 <line
