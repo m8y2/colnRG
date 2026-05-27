@@ -14,8 +14,17 @@ export default function PhotoGallery() {
     });
   }, []);
 
-  const handleSelect = (p) => {
-    setSelected(p);
+  const handleSelect = (p, e) => {
+    const tile = e.currentTarget;
+    const rect = tile.getBoundingClientRect();
+    const offset = window.scrollY + rect.top - (window.innerHeight - rect.height) / 2;
+    window.scrollTo({ top: offset, behavior: "smooth" });
+    setTimeout(() => {
+      setSelected(p);
+      requestAnimationFrame(() => {
+        overlayRef.current?.scrollTo({ top: 0, behavior: "instant" });
+      });
+    }, 350);
   };
 
   useEffect(() => {
@@ -36,7 +45,7 @@ export default function PhotoGallery() {
       </h2>
       <div className="photo-grid">
         {photos.map((p) => (
-          <div key={p.ec5_uuid} className="photo-tile" onClick={() => handleSelect(p)}>
+          <div key={p.ec5_uuid} className="photo-tile" onClick={(e) => handleSelect(p, e)}>
             <img
               src={p.photo_url || p.photo_2_url}
               alt={p.photo_desc || "Photo"}
