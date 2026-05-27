@@ -65,7 +65,7 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 8. Never speculate. Write only verifiable facts. No opinions, no "suggests", "may", "could", "recommended", "warrants".
 9. Never use first person (I, my, we, our). Write as a neutral third-party report.
 10. Cite specific values with units (e.g. "0.25 mg/L"). Every claim about a chemical must include its exact measured value.
-11. No markdown formatting — plain text only, no bullet points, no bold (**), no headings (#).
+11. Plain text only. No markdown. Do not use **, #, *, -, |, or any formatting characters.
 12. The Monitoring program context section above contains accurate facts about the project. Use it for project-level context. Do not contradict it.
 13. All dates must be exact from the data. Do not invent or approximate dates.
 14. The only valid identifier for this site is the code {site_code}. Never use any other name or label.
@@ -110,7 +110,7 @@ To assess WFD band, compare the round's actual measured values against these thr
 6. Comparisons between rounds must use the actual date ranges from the data provided.
 7. Never use first person (I, my, we, our). Write as a neutral third-party report.
 8. Cite specific values with units (e.g. "0.25 mg/L"). Every claim about a chemical must include its exact measured value.
-9. No markdown formatting — plain text only, no bullet points, no bold (**), no headings (#).
+9. Plain text only. No markdown. Do not use **, #, *, -, |, or any formatting characters.
 10. Never include a chemical that has no readings in the round data. Never use WFD threshold values as actual measurements.
 11. All dates must be exact from the data. Do not invent or approximate dates.
 
