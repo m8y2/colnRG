@@ -1,4 +1,6 @@
 import json
+import os
+import secrets
 import threading
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -760,3 +762,120 @@ def get_unit(chemical):
         "water_depth": "cm",
     }
     return units.get(chemical, "")
+
+
+# ── Private API (key-authenticated) ──────────────────────────
+
+ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
+
+def require_api_key(api_key: str):
+    if not api_key:
+        raise HTTPException(401, "API key required")
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT id FROM api_keys WHERE key = ? AND enabled = 1", (api_key,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(403, "Invalid or disabled API key")
+
+
+@app.post("/api/v1/admin/keys/generate")
+def generate_api_key(admin_key: str = Query(...), label: str = Query("")):
+    if not ADMIN_API_KEY or admin_key != ADMIN_API_KEY:
+        raise HTTPException(403, "Invalid admin key")
+    new_key = secrets.token_urlsafe(32)
+    conn = get_connection()
+    conn.execute(
+        "INSERT INTO api_keys (key, label, created_at) VALUES (?, ?, ?)",
+        (new_key, label, datetime.utcnow().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+    return {"api_key": new_key, "label": label}
+
+
+@app.get("/api/v1/admin/keys/list")
+def list_api_keys(admin_key: str = Query(...)):
+    if not ADMIN_API_KEY or admin_key != ADMIN_API_KEY:
+        raise HTTPException(403, "Invalid admin key")
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT id, key, label, created_at, enabled FROM api_keys ORDER BY created_at DESC"
+    ).fetchall()
+    conn.close()
+    return {"keys": [dict(r) for r in rows]}
+
+
+@app.post("/api/v1/admin/keys/revoke")
+def revoke_api_key(admin_key: str = Query(...), key_id: int = Query(...)):
+    if not ADMIN_API_KEY or admin_key != ADMIN_API_KEY:
+        raise HTTPException(403, "Invalid admin key")
+    conn = get_connection()
+    conn.execute("UPDATE api_keys SET enabled = 0 WHERE id = ?", (key_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "revoked"}
+
+
+@app.get("/api/v1/reports/site")
+def v1_get_site_report(site: str = Query(...), api_key: str = Query(...)):
+    require_api_key(api_key)
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM site_reports WHERE site_code = ? ORDER BY version DESC LIMIT 1",
+        (site,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(404, f"No report for site {site}")
+    return dict(row)
+
+
+@app.get("/api/v1/reports/round")
+def v1_get_round_report(round_label: str = Query(...), api_key: str = Query(...)):
+    require_api_key(api_key)
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM round_reports WHERE round_label = ? ORDER BY version DESC LIMIT 1",
+        (round_label,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(404, f"No report for round {round_label}")
+    return dict(row)
+
+
+@app.post("/api/v1/reports/site/generate")
+def v1_trigger_site_report(site: str = Query(...), api_key: str = Query(...)):
+    require_api_key(api_key)
+    task_id = f"site_{site}"
+    with _report_queue_lock:
+        if any(t["id"] == task_id for t in _report_queue):
+            raise HTTPException(409, "A report for this site is already queued or running")
+    def task_fn(ip, tid):
+        _set_progress(tid, 40, "Building data context")
+        generate_site_report(site, progress_callback=lambda p, m: _set_progress(tid, 40 + int(p * 0.55), m), ip=ip)
+    _enqueue_task(task_id, "site", site, task_fn)
+    return {"status": "queued", "site": site, "task_id": task_id}
+
+
+@app.post("/api/v1/reports/round/generate")
+def v1_trigger_round_report(
+    round_label: str = Query(...),
+    round_start: str = Query(...),
+    round_end: str = Query(...),
+    api_key: str = Query(...),
+):
+    require_api_key(api_key)
+    task_id = f"round_{round_label}"
+    with _report_queue_lock:
+        if any(t["id"] == task_id for t in _report_queue):
+            raise HTTPException(409, "A report for this round is already queued or running")
+    def task_fn(ip, tid):
+        _set_progress(tid, 40, "Building data context")
+        generate_round_report(round_label, round_start, round_end,
+                              progress_callback=lambda p, m: _set_progress(tid, 40 + int(p * 0.55), m),
+                              ip=ip)
+    _enqueue_task(task_id, "round", round_label, task_fn)
+    return {"status": "queued", "round": round_label, "task_id": task_id}

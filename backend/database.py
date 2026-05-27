@@ -78,6 +78,14 @@ def init_db():
 
         CREATE INDEX IF NOT EXISTS idx_site_reports ON site_reports(site_code, version);
         CREATE INDEX IF NOT EXISTS idx_round_reports ON round_reports(round_label, version);
+
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT UNIQUE NOT NULL,
+            label TEXT,
+            created_at TEXT NOT NULL,
+            enabled INTEGER DEFAULT 1
+        );
     """)
     conn.commit()
     conn.close()
