@@ -42,8 +42,6 @@ MONITORING_CONTEXT = """## Monitoring program context (accurate facts — do not
 
 SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for sampling site {site_code} on the River Coln.
 
-{factfile}
-
 {site_order}
 
 {site_location_context}
@@ -73,12 +71,11 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 9. Never use first person (I, my, we, our). Write as a neutral third-party report.
 10. Cite specific values with units (e.g. "0.25 mg/L"). Every claim about a chemical must include its exact measured value.
 11. No markdown formatting — plain text only, no bullet points.
-12. Never quote, paraphrase, or reference the factfile text in your response. It is background knowledge only.
-13. The Monitoring program context section above contains accurate facts about the project. Use it for project-level context. Do not contradict it.
-14. All dates must be exact from the data. Do not invent or approximate dates.
-15. The only valid identifier for this site is the code {site_code}. Never use any other name or label.
-16. Never include a chemical that has no readings in the site data. If dissolved oxygen, conductivity, or any other field is absent from all entries, do not mention it. Never use WFD threshold values as actual measurements.
-17. The River Coln has no tributaries. Do not mention any tributaries, confluences, or side streams.
+12. The Monitoring program context section above contains accurate facts about the project. Use it for project-level context. Do not contradict it.
+13. All dates must be exact from the data. Do not invent or approximate dates.
+14. The only valid identifier for this site is the code {site_code}. Never use any other name or label.
+15. Never include a chemical that has no readings in the site data. If dissolved oxygen, conductivity, or any other field is absent from all entries, do not mention it. Never use WFD threshold values as actual measurements.
+16. The River Coln has no tributaries. Do not mention any tributaries, confluences, or side streams.
 
 Write a report in natural English prose (3-5 paragraphs). Include:
 1. Brief description of the site location (relative to upstream/downstream neighbours) and its sampling dates
@@ -88,8 +85,6 @@ Write a report in natural English prose (3-5 paragraphs). Include:
 
 
 ROUND_REPORT_PROMPT = """Write a clear, concise water quality summary for sampling round {round_label} ({round_start} to {round_end}) on the River Coln.
-
-{factfile}
 
 {site_order}
 
@@ -115,13 +110,13 @@ ROUND_REPORT_PROMPT = """Write a clear, concise water quality summary for sampli
 1. Base all statements on the round data above. Never invent values, dates, or trends.
 2. Never mention sewage, STW, or treatment works unless the data explicitly mentions them.
 3. Never mention fishing, trout, or wildlife. This is a water quality monitoring scheme.
-4. Never speculate about causes of water quality.
+4. Never speculate about causes or sources. Ban phrases like "may be due to", "suggests that", "could indicate", "might be related to", "possibly".
 5. Never reference the River Avon. The Coln joins the Thames, not the Avon.
 6. Comparisons between rounds must use the actual date ranges from the data provided.
 7. Never use first person (I, my, we, our). Write as a neutral third-party report.
-8. Cite specific values with units (e.g. "0.25 mg/L").
+8. Cite specific values with units (e.g. "0.25 mg/L"). Every claim about a chemical must include its exact measured value.
 9. No markdown formatting — plain text only, no bullet points.
-10. The factfile is background context only. Do not recite it.
+10. Never include a chemical that has no readings in the round data. Never use WFD threshold values as actual measurements.
 11. All dates must be exact from the data. Do not invent or approximate dates.
 
 Write a report in natural English prose (4-6 paragraphs). Include:

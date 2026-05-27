@@ -24,7 +24,7 @@ def query_ollama(prompt):
         "model": MODEL,
         "prompt": prompt,
         "stream": False,
-        "options": {"temperature": 0.1, "num_predict": 2048},
+        "options": {"temperature": 0.0, "num_predict": 1024},
     }).encode()
 
     req = urllib.request.Request(
