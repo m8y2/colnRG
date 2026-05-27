@@ -1,22 +1,14 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { getRounds, getAllRoundReports, getRoundReport, getRoundReportVersions, triggerRoundReport, getReportStatus } from "../api";
 import { fmtDate } from "../utils";
+import AnimatedSelect from "./AnimatedSelect";
 
 function VersionSelector({ versions, selectedVersion, onSelect }) {
   if (!versions || versions.length < 2) return null;
   const sorted = [...versions].sort((a, b) => a.version - b.version);
+  const opts = sorted.map((v) => ({ value: String(v.version), label: `v${v.version} — ${fmtDate(v.generated_at?.slice(0, 10))}` }));
   return (
-    <select
-      value={selectedVersion}
-      onChange={(e) => onSelect(Number(e.target.value))}
-      className="version-select"
-    >
-      {sorted.map((v) => (
-        <option key={v.version} value={v.version}>
-          v{v.version} — {fmtDate(v.generated_at?.slice(0, 10))}
-        </option>
-      ))}
-    </select>
+    <AnimatedSelect options={opts} value={String(selectedVersion)} onChange={(v) => onSelect(Number(v))} className="version-select" />
   );
 }
 
@@ -130,14 +122,14 @@ export default function RoundReport({ onReportTriggered }) {
         <div className="filters">
           <label>
             Round:
-            <select value={selectedRound} onChange={(e) => setSelectedRound(e.target.value)}>
-              <option value="">Select round...</option>
-              {rounds.map((r) => (
-                <option key={r.round} value={r.round}>
-                  Round {r.round} — {r.start} to {r.end}
-                </option>
-              ))}
-            </select>
+            <AnimatedSelect
+              options={[
+                { value: "", label: "Select round..." },
+                ...rounds.map((r) => ({ value: String(r.round), label: `Round ${r.round} — ${r.start} to ${r.end}` })),
+              ]}
+              value={selectedRound}
+              onChange={setSelectedRound}
+            />
           </label>
           <button className="sync-btn" onClick={handleGenerate} disabled={generating || !selectedRound}>
             Generate
