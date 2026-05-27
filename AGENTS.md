@@ -78,7 +78,7 @@ run.py     Orchestrator script (uses Node 22 at /usr/local/opt/node@22/bin/node)
 | **Droplet** | Ubuntu 24.04, 1vCPU/512MB, London |
 | **SSH** | `ssh -i ~/.ssh/id_ed25519 root@161.35.168.168` |
 | **Frontend** | Served by nginx from `/opt/coln-dashboard/frontend/dist/` |
-| **Backend** | FastAPI behind nginx proxy `/api` → `127.0.0.1:8000`, 2 uvicorn workers |
+| **Backend** | FastAPI behind nginx proxy `/api` → `127.0.0.1:8000`, 1 uvicorn worker (required for in-memory report queue) |
 | **Auto-start** | nginx + coln-api.service + coln-sync.timer (daily 06:00) all systemd-enabled |
 | **Swap** | 1GB swapfile added for `npm run build` (512MB RAM is tight) |
 | **Build locally, rsync** | `npm run build && rsync -e 'ssh -i ~/.ssh/id_ed25519' -avz dist/ root@161.35.168.168:/opt/coln-dashboard/frontend/dist/` |
