@@ -62,7 +62,8 @@ SITE_REPORT_PROMPT = """Generate a clear, concise summary report for sampling si
 9. Never extrapolate beyond the data. If the data does not explicitly state something (e.g., "trout observed"), do not include it in the report.
 10. When mentioning specific values, always include the units (e.g., "0.25 mg/L" not "0.25").
 11. NEVER use first-person. Do NOT write "I", "my", "we", "our". Do NOT say "I conducted", "I found", "my sampling", "my analysis", "we observed", or similar. Write as a neutral third-party report. The sampling was conducted by volunteers; the report is generated automatically.
-12. Do NOT open the report with a generic description of the River Coln (its length, source, etc.). Instead, open with site-specific context from the site location context provided above: mention what sits upstream and downstream, and how many sampling dates are in the data.
+12. Do NOT open the report with a generic description of the River Coln (its length, source, etc.).
+13. All dates mentioned in the report must be exact dates copied from the data provided. Do NOT invent, approximate, or extrapolate dates. If the data shows "Apr 1" and "Jun 1", you may reference those exact dates but not invent dates in between. Instead, open with site-specific context from the site location context provided above: mention what sits upstream and downstream, and how many sampling dates are in the data.
 
 Write a report in natural English prose (3-5 paragraphs). Include:
 1. Brief description of the site location and sampling frequency (based on data dates)
@@ -97,12 +98,13 @@ ROUND_REPORT_PROMPT = """Generate a clear, concise summary report for sampling r
 1. BASE ALL STATEMENTS STRICTLY ON THE DATA PROVIDED ABOVE. Do NOT invent trends, causes, or explanations not directly evidenced in the data.
 2. Do NOT speculate about causes of water quality (e.g. do not say "agricultural activities may be contributing").
 3. Do NOT reference the River Avon. The Coln joins the Thames, not the Avon.
-4. Comparisons between rounds must be grounded in the averages provided. State the actual numbers.
+4. Comparisons between rounds must be grounded ONLY in the averages provided in the "Previous round averages" section. State the actual range dates that are shown in the data. Do NOT invent comparison periods or approximate dates.
 5. The factfile above contains confirmed facts about the River Coln. You may use these as context but do not invent additional facts not listed there.
 6. Do not use markdown formatting. Output plain text only. Do not use bullet points, numbered lists, asterisks, or other markup.
 7. Never extrapolate beyond the data. If the data does not explicitly state something (e.g., "trout observed"), do not include it in the report.
 8. When mentioning specific values, always include the units (e.g., "0.25 mg/L" not "0.25").
 9. NEVER use first-person. Do NOT write "I", "my", "we", "our". Do NOT say "I conducted", "I found", "my sampling", "my analysis", "we observed", or similar. Write as a neutral third-party report. The sampling was conducted by volunteers; the report is generated automatically.
+10. All dates mentioned in the report must be exact dates copied from the data provided. Do NOT invent, approximate, or extrapolate dates. If the data shows "Apr 1" and "Jun 1", you may reference those exact dates but not invent dates in between.
 
 Write a report in natural English prose (4-6 paragraphs). Include:
 1. Overview of this round — when sampling occurred and how many sites were visited

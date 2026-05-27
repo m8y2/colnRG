@@ -40,7 +40,7 @@ export default function RoundReport({ onReportTriggered }) {
         map[key] = r;
       }
     }
-    return Object.values(map).sort((a, b) => (b.generated_at || "").localeCompare(a.generated_at || ""));
+    return Object.values(map).sort((a, b) => (a.round_start || "").localeCompare(b.round_start || ""));
   }, [allReports]);
 
   useEffect(() => {
