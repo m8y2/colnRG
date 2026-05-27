@@ -134,7 +134,7 @@ export default function RoundReport({ onReportTriggered }) {
               onChange={setSelectedRound}
             />
           </label>
-          <button className="sync-btn" onClick={handleGenerate} disabled={generating || !selectedRound}>
+          <button className="sync-btn" onClick={handleGenerate} disabled={!selectedRound}>
             Generate
           </button>
         </div>

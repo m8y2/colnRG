@@ -125,7 +125,7 @@ export default function SiteReport({ onReportTriggered }) {
               onChange={setSelectedSite}
             />
           </label>
-          <button className="sync-btn" onClick={handleGenerate} disabled={generating || !selectedSite}>
+          <button className="sync-btn" onClick={handleGenerate} disabled={!selectedSite}>
             Generate
           </button>
         </div>

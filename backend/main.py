@@ -591,8 +591,18 @@ def _worker_loop():
             import traceback
             traceback.print_exc()
 
-    # Queue empty — destroy droplet
-    _destroy_droplet()
+    # Queue empty — keep droplet alive for 30s to handle new requests
+    _report_worker_busy = False
+    if _report_droplet["id"]:
+        print(f"  Queue empty, keeping droplet alive for 30s...")
+        for _ in range(6):
+            time.sleep(5)
+            with _report_queue_lock:
+                if _report_queue:
+                    break
+        else:
+            _destroy_droplet()
+            print("  Droplet destroyed after 30s idle")
 
 
 def _enqueue_task(task_id, task_type, identifier, task_fn):
