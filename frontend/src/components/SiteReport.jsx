@@ -53,6 +53,8 @@ export default function SiteReport() {
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [error, setError] = useState("");
   const prevCount = useRef(0);
+  const optimisticId = useRef(null);
+  const postSent = useRef(false);
 
   const latestReports = useMemo(() => {
     const map = {};
@@ -76,11 +78,17 @@ export default function SiteReport() {
         const status = await getReportStatus();
         if (cancelled) return;
         const siteTasks = (status.running || []).filter((t) => t.type === "site");
-        setRunningTasks(siteTasks);
-        if (siteTasks.length === 0 && prevCount.current > 0) {
+        if (siteTasks.length > 0) {
+          setRunningTasks(siteTasks);
+        } else if (!generating) {
+          setRunningTasks([]);
+        }
+        if (siteTasks.length === 0 && generating && (prevCount.current > 0 || postSent.current)) {
           const r = await getAllSiteReports();
           if (!cancelled) setAllReports(r.reports || []);
           setGenerating(false);
+          setRunningTasks([]);
+          optimisticId.current = null;
         }
         prevCount.current = siteTasks.length;
       } catch {}
@@ -94,12 +102,23 @@ export default function SiteReport() {
   const handleGenerate = async () => {
     if (!selectedSite) return;
     setError("");
+    const optimistic = `optimistic-${Date.now()}`;
+    optimisticId.current = optimistic;
     setGenerating(true);
+    postSent.current = false;
+    setRunningTasks((prev) => [
+      ...prev,
+      { id: optimistic, identifier: selectedSite, progress: 0, message: "Requesting generation...", type: "site" },
+    ]);
     try {
       await triggerSiteReport(selectedSite);
+      postSent.current = true;
     } catch (e) {
       setError(e.message);
       setGenerating(false);
+      optimisticId.current = null;
+      postSent.current = false;
+      setRunningTasks((prev) => prev.filter((t) => t.id !== optimistic));
     }
   };
 

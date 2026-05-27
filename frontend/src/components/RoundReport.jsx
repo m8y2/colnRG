@@ -52,6 +52,8 @@ export default function RoundReport() {
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [error, setError] = useState("");
   const prevCount = useRef(0);
+  const optimisticId = useRef(null);
+  const postSent = useRef(false);
 
   const latestReports = useMemo(() => {
     const map = {};
@@ -78,11 +80,17 @@ export default function RoundReport() {
         const status = await getReportStatus();
         if (cancelled) return;
         const roundTasks = (status.running || []).filter((t) => t.type === "round");
-        setRunningTasks(roundTasks);
-        if (roundTasks.length === 0 && prevCount.current > 0) {
+        if (roundTasks.length > 0) {
+          setRunningTasks(roundTasks);
+        } else if (!generating) {
+          setRunningTasks([]);
+        }
+        if (roundTasks.length === 0 && generating && (prevCount.current > 0 || postSent.current)) {
           const r = await getAllRoundReports();
           if (!cancelled) setAllReports(r.reports || []);
           setGenerating(false);
+          setRunningTasks([]);
+          optimisticId.current = null;
         }
         prevCount.current = roundTasks.length;
       } catch {}
@@ -98,12 +106,24 @@ export default function RoundReport() {
     const round = rounds.find((r) => String(r.round) === selectedRound);
     if (!round) return;
     setError("");
+    const optimistic = `optimistic-${Date.now()}`;
+    optimisticId.current = optimistic;
     setGenerating(true);
+    postSent.current = false;
+    const label = `Round ${round.round}`;
+    setRunningTasks((prev) => [
+      ...prev,
+      { id: optimistic, identifier: label, progress: 0, message: "Requesting generation...", type: "round" },
+    ]);
     try {
-      await triggerRoundReport(`Round ${round.round}`, round.start, round.end);
+      await triggerRoundReport(label, round.start, round.end);
+      postSent.current = true;
     } catch (e) {
       setError(e.message);
       setGenerating(false);
+      optimisticId.current = null;
+      postSent.current = false;
+      setRunningTasks((prev) => prev.filter((t) => t.id !== optimistic));
     }
   };
 
