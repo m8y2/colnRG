@@ -27,23 +27,45 @@ export default function App() {
   const [overviewChemical, setOverviewChemical] = useState("phosphate");
   const [sitesTab, setSitesTab] = useState("map");
   const [error, setError] = useState("");
-  const [isDark, setIsDark] = useState(() => window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false);
+  const [isDark, setIsDark] = useState(() => {
+    const saved = localStorage.getItem("coln-dark-mode");
+    if (saved !== null) return saved === "true";
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+  });
   const [reportRunningTasks, setReportRunningTasks] = useState([]);
 
   useEffect(() => {
     document.body.classList.toggle("dark", isDark);
+    localStorage.setItem("coln-dark-mode", isDark);
   }, [isDark]);
 
   useEffect(() => {
     const tick = async () => {
       try {
         const status = await getReportStatus();
-        setReportRunningTasks(status.running || []);
+        const backendTasks = (status.running || []).filter((t) => t.type !== "infra");
+        setReportRunningTasks((prev) => {
+          const merged = [...backendTasks];
+          for (const t of prev) {
+            if (t.id && t.id.startsWith("opt-")) {
+              const ts = parseInt(t.id.split("-").pop(), 10);
+              if (!backendTasks.some((bt) => bt.identifier === t.identifier && bt.type === t.type) && Date.now() - ts < 15000) {
+                merged.push(t);
+              }
+            }
+          }
+          return merged;
+        });
       } catch {}
     };
     tick();
     const id = setInterval(tick, 2000);
     return () => clearInterval(id);
+  }, []);
+
+  const addOptimisticTask = useCallback((identifier, type) => {
+    const task = { id: `opt-${identifier}-${Date.now()}`, identifier, progress: 0, message: "Queued...", type };
+    setReportRunningTasks((prev) => [...prev, task]);
   }, []);
 
   const toggleTheme = () => setIsDark((d) => !d);
@@ -279,12 +301,12 @@ export default function App() {
         )}
         {tab === "site-report" && (
           <Suspense fallback={<div className="loading">Loading site report...</div>}>
-            <SiteReport />
+            <SiteReport onReportTriggered={(id) => addOptimisticTask(id, "site")} />
           </Suspense>
         )}
         {tab === "round-report" && (
           <Suspense fallback={<div className="loading">Loading round report...</div>}>
-            <RoundReport />
+            <RoundReport onReportTriggered={(id) => addOptimisticTask(id, "round")} />
           </Suspense>
         )}
         {tab === "sites" && (

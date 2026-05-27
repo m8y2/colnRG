@@ -21,19 +21,17 @@ function VersionSelector({ versions, selectedVersion, onSelect }) {
   );
 }
 
-export default function SiteReport() {
+export default function SiteReport({ onReportTriggered }) {
   const [sites, setSites] = useState([]);
   const [allReports, setAllReports] = useState([]);
   const [selectedSite, setSelectedSite] = useState("");
-  const [runningTasks, setRunningTasks] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [viewing, setViewing] = useState(null);
   const [versions, setVersions] = useState(null);
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [error, setError] = useState("");
   const prevCount = useRef(0);
-  const optimisticId = useRef(null);
-  const postSent = useRef(false);
+  const genState = useRef({ active: false, ts: null });
 
   const latestReports = useMemo(() => {
     const map = {};
@@ -57,17 +55,13 @@ export default function SiteReport() {
         const status = await getReportStatus();
         if (cancelled) return;
         const siteTasks = (status.running || []).filter((t) => t.type === "site");
-        if (siteTasks.length > 0) {
-          setRunningTasks(siteTasks);
-        } else if (!generating) {
-          setRunningTasks([]);
-        }
-        if (siteTasks.length === 0 && generating && (prevCount.current > 0 || postSent.current)) {
+        if (siteTasks.length === 0 && prevCount.current > 0) {
           const r = await getAllSiteReports();
           if (!cancelled) setAllReports(r.reports || []);
+        }
+        if (siteTasks.length === 0 && genState.current.active && (prevCount.current > 0 || Date.now() - genState.current.ts > 30000)) {
           setGenerating(false);
-          setRunningTasks([]);
-          optimisticId.current = null;
+          genState.current = { active: false, ts: null };
         }
         prevCount.current = siteTasks.length;
       } catch {}
@@ -81,23 +75,15 @@ export default function SiteReport() {
   const handleGenerate = async () => {
     if (!selectedSite) return;
     setError("");
-    const optimistic = `optimistic-${Date.now()}`;
-    optimisticId.current = optimistic;
     setGenerating(true);
-    postSent.current = false;
-    setRunningTasks((prev) => [
-      ...prev,
-      { id: optimistic, identifier: selectedSite, progress: 0, message: "Requesting generation...", type: "site" },
-    ]);
+    genState.current = { active: true, ts: Date.now() };
+    if (onReportTriggered) onReportTriggered(selectedSite);
     try {
       await triggerSiteReport(selectedSite);
-      postSent.current = true;
     } catch (e) {
       setError(e.message);
       setGenerating(false);
-      optimisticId.current = null;
-      postSent.current = false;
-      setRunningTasks((prev) => prev.filter((t) => t.id !== optimistic));
+      genState.current = { active: false, ts: null };
     }
   };
 
@@ -145,7 +131,7 @@ export default function SiteReport() {
               onChange={setSelectedSite}
             />
           </label>
-          <button className="sync-btn" onClick={handleGenerate} disabled={generating || runningTasks.length > 0 || !selectedSite}>
+          <button className="sync-btn" onClick={handleGenerate} disabled={generating || !selectedSite}>
             Generate
           </button>
         </div>

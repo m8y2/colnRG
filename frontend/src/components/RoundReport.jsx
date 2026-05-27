@@ -20,19 +20,17 @@ function VersionSelector({ versions, selectedVersion, onSelect }) {
   );
 }
 
-export default function RoundReport() {
+export default function RoundReport({ onReportTriggered }) {
   const [rounds, setRounds] = useState([]);
   const [allReports, setAllReports] = useState([]);
   const [selectedRound, setSelectedRound] = useState("");
-  const [runningTasks, setRunningTasks] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [viewing, setViewing] = useState(null);
   const [versions, setVersions] = useState(null);
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [error, setError] = useState("");
   const prevCount = useRef(0);
-  const optimisticId = useRef(null);
-  const postSent = useRef(false);
+  const genState = useRef({ active: false, ts: null });
 
   const latestReports = useMemo(() => {
     const map = {};
@@ -59,17 +57,13 @@ export default function RoundReport() {
         const status = await getReportStatus();
         if (cancelled) return;
         const roundTasks = (status.running || []).filter((t) => t.type === "round");
-        if (roundTasks.length > 0) {
-          setRunningTasks(roundTasks);
-        } else if (!generating) {
-          setRunningTasks([]);
-        }
-        if (roundTasks.length === 0 && generating && (prevCount.current > 0 || postSent.current)) {
+        if (roundTasks.length === 0 && prevCount.current > 0) {
           const r = await getAllRoundReports();
           if (!cancelled) setAllReports(r.reports || []);
+        }
+        if (roundTasks.length === 0 && genState.current.active && (prevCount.current > 0 || Date.now() - genState.current.ts > 30000)) {
           setGenerating(false);
-          setRunningTasks([]);
-          optimisticId.current = null;
+          genState.current = { active: false, ts: null };
         }
         prevCount.current = roundTasks.length;
       } catch {}
@@ -85,24 +79,16 @@ export default function RoundReport() {
     const round = rounds.find((r) => String(r.round) === selectedRound);
     if (!round) return;
     setError("");
-    const optimistic = `optimistic-${Date.now()}`;
-    optimisticId.current = optimistic;
     setGenerating(true);
-    postSent.current = false;
+    genState.current = { active: true, ts: Date.now() };
     const label = `Round ${round.round}`;
-    setRunningTasks((prev) => [
-      ...prev,
-      { id: optimistic, identifier: label, progress: 0, message: "Requesting generation...", type: "round" },
-    ]);
+    if (onReportTriggered) onReportTriggered(label);
     try {
       await triggerRoundReport(label, round.start, round.end);
-      postSent.current = true;
     } catch (e) {
       setError(e.message);
       setGenerating(false);
-      optimisticId.current = null;
-      postSent.current = false;
-      setRunningTasks((prev) => prev.filter((t) => t.id !== optimistic));
+      genState.current = { active: false, ts: null };
     }
   };
 
@@ -153,7 +139,7 @@ export default function RoundReport() {
               ))}
             </select>
           </label>
-          <button className="sync-btn" onClick={handleGenerate} disabled={generating || runningTasks.length > 0 || !selectedRound}>
+          <button className="sync-btn" onClick={handleGenerate} disabled={generating || !selectedRound}>
             Generate
           </button>
         </div>
