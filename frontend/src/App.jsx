@@ -163,12 +163,17 @@ export default function App() {
             {reportRunningTasks.length > 0 && (
               <span style={{ fontWeight: 600, color: "var(--primary)" }}>Generating ({reportRunningTasks.length} running)</span>
             )}
-            {reportRunningTasks.filter((t) => t.type !== "infra").map((t) => (
-              <span key={t.id} style={{ color: "var(--text-secondary)" }}>
-                {t.identifier}: {t.progress < 0 ? "Failed" : `${t.progress}%`}
-                <span style={{ color: "var(--text-muted)", marginLeft: 4 }}>{t.message}</span>
-              </span>
-            ))}
+            {reportRunningTasks.filter((t) => t.type !== "infra").map((t) => {
+              const etaMap = { "Queued...": "", "Spinning up droplet": "~2 min", "Droplet ready": "~1 min", "Copying data to droplet": "~1 min", "Generating report via LLM": "~30s", "Saving report": "~5s", "Complete": "Done" };
+              const eta = etaMap[t.message] || (t.progress >= 80 ? "<1 min" : t.progress >= 40 ? "~1 min" : t.progress > 0 ? "~2 min" : "");
+              return (
+                <span key={t.id} style={{ color: "var(--text-secondary)" }}>
+                  {t.identifier}: {t.progress < 0 ? "Failed" : `${t.progress}%`}
+                  <span style={{ color: "var(--text-muted)", marginLeft: 4 }}>{t.message}</span>
+                  {eta && <span style={{ color: "var(--text-muted)", marginLeft: 4 }}>({eta})</span>}
+                </span>
+              );
+            })}
             <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
               {reportRunningTasks.filter((t) => t.type !== "infra").map((t) => (
                 <div key={t.id} style={{ width: 80, height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
