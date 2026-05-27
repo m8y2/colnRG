@@ -205,7 +205,7 @@ export default function SiteReport() {
                 ))}
                 {latestReports.map((r) => viewing?.id === r.id && (
                   <tr key={`expanded-${r.id}`}>
-                    <td colSpan="5" style={{ padding: "12px 16px" }}>
+                    <td colSpan="5" style={{ padding: "12px 16px", whiteSpace: "normal" }}>
                       <div className="report-text">
                         <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: 8 }}>
                           v{viewing.version} — {fmtDate(viewing.generated_at?.slice(0, 10))}
