@@ -82,7 +82,7 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 13. The Monitoring program context section above contains accurate facts about the project. Use it for project-level context. Do not contradict it.
 14. All dates must be exact from the data. Do not invent or approximate dates.
 15. Never report values or ranges for a chemical that has no data entries. If a chemical field is absent from the site data, do not mention it. Only discuss chemicals that have actual measured values shown in the site data above.
-16. Never mention "dissolved oxygen" or "DO" unless the site data explicitly contains dissolved_oxygen values.
+16. Never create ranges from chemical values. Do NOT write "ranging from X to Y" or "levels between A and B". Instead, list the actual value for each sampling date (e.g. "DO was 0 mg/L on 5 Nov").
 17. Never claim the site is at the confluence of the Thames or at the mouth of the river. The sites are along the River Coln, not at its confluence.
 
 Write a report in natural English prose (3-5 paragraphs). Include:
