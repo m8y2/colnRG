@@ -5,18 +5,19 @@ import threading
 import time
 from datetime import datetime, timedelta
 from collections import defaultdict
-from fastapi import FastAPI, Query, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Query, Header, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from database import get_connection, init_db, get_last_sync
 from sync import run_sync, SITE_CODE_MAP
 from coords import SITE_COORDS, SITE_DOWNSTREAM_ORDER
 from llm_cleanup.report_generator import generate_site_report, generate_round_report, call_do
 
-app = FastAPI(title="Coln River Guardians Dashboard API")
+app = FastAPI(title="Coln River Guardians Dashboard API", docs_url=None, redoc_url=None)
 
+FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://161.35.168.168")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[FRONTEND_ORIGIN, "http://localhost:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -39,7 +40,7 @@ def health():
     conn.close()
     return {
         "status": "ok" if ok else "degraded",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -787,6 +788,13 @@ def get_unit(chemical):
 
 ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
 
+def _verify_admin(authorization: str = Header(...)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Missing or invalid Authorization header")
+    token = authorization.removeprefix("Bearer ")
+    if not ADMIN_API_KEY or token != ADMIN_API_KEY:
+        raise HTTPException(403, "Invalid admin key")
+
 def require_api_key(api_key: str):
     if not api_key:
         raise HTTPException(401, "API key required")
@@ -800,14 +808,13 @@ def require_api_key(api_key: str):
 
 
 @app.post("/api/v1/admin/keys/generate")
-def generate_api_key(admin_key: str = Query(...), label: str = Query("")):
-    if not ADMIN_API_KEY or admin_key != ADMIN_API_KEY:
-        raise HTTPException(403, "Invalid admin key")
+def generate_api_key(label: str = Query(""), authorization: str = Header(...)):
+    _verify_admin(authorization)
     new_key = secrets.token_urlsafe(32)
     conn = get_connection()
     conn.execute(
         "INSERT INTO api_keys (key, label, created_at) VALUES (?, ?, ?)",
-        (new_key, label, datetime.utcnow().isoformat()),
+        (new_key, label, datetime.now(timezone.utc).isoformat()),
     )
     conn.commit()
     conn.close()
@@ -815,9 +822,8 @@ def generate_api_key(admin_key: str = Query(...), label: str = Query("")):
 
 
 @app.get("/api/v1/admin/keys/list")
-def list_api_keys(admin_key: str = Query(...)):
-    if not ADMIN_API_KEY or admin_key != ADMIN_API_KEY:
-        raise HTTPException(403, "Invalid admin key")
+def list_api_keys(authorization: str = Header(...)):
+    _verify_admin(authorization)
     conn = get_connection()
     rows = conn.execute(
         "SELECT id, key, label, created_at, enabled FROM api_keys ORDER BY created_at DESC"
@@ -827,9 +833,8 @@ def list_api_keys(admin_key: str = Query(...)):
 
 
 @app.post("/api/v1/admin/keys/revoke")
-def revoke_api_key(admin_key: str = Query(...), key_id: int = Query(...)):
-    if not ADMIN_API_KEY or admin_key != ADMIN_API_KEY:
-        raise HTTPException(403, "Invalid admin key")
+def revoke_api_key(key_id: int = Query(...), authorization: str = Header(...)):
+    _verify_admin(authorization)
     conn = get_connection()
     conn.execute("UPDATE api_keys SET enabled = 0 WHERE id = ?", (key_id,))
     conn.commit()
