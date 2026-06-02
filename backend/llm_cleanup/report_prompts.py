@@ -36,7 +36,7 @@ MONITORING_CONTEXT = """## Monitoring program context (accurate facts — do not
 - As of the latest data there have been 61 unique sampling dates across the project
 - 376 water quality samples have been collected across 26 sampling sites
 - Each sample measures up to 7 parameters: phosphate, ammonia, nitrate, turbidity, dissolved oxygen, conductivity, water depth
-- Sampling is conducted by volunteers on a roughly weekly rotation
+- Sampling is conducted by volunteers on a roughly monthly rotation
 - Individual sites average 8–9 sampling rounds each, spanning approximately 10–11 months"""
 
 
@@ -64,14 +64,22 @@ SITE_REPORT_PROMPT = """Write a clear, concise water quality summary for samplin
 7. Never invent monitoring patterns. Do not say "sampled daily" or "sampled weekly for X weeks" unless the data explicitly shows that frequency.
 8. Never speculate. Write only verifiable facts. No opinions, no "suggests", "may", "could", "recommended", "warrants".
 9. Never use first person (I, my, we, our). Write as a neutral third-party report.
-10. Cite specific values with units (e.g. "0.25 mg/L"). Every claim about a chemical must include its exact measured value.
-11. Write in plain paragraphs only. No headings, no bold, no bullet lists, no dashes, no asterisks, no pipes, no tables. Just paragraphs of text.
+10. Write in plain paragraphs only. No headings, no bold, no bullet lists, no dashes, no asterisks, no pipes, no tables. Just paragraphs of text.
 
-Write a report in natural English prose (3-5 paragraphs). Include:
+## EXAMPLE REPORT (follow this style, length, and tone — adapt content to the actual site data)
+Sampling site PW on the River Coln is situated downstream of EP and upstream of SJR. Monitoring at this location began on 22 June 2025, with data collected across 11 sampling dates up to 2 May 2026. Parameters measured include phosphate, ammonia, nitrate, turbidity, dissolved oxygen, and water depth, with samples taken on a roughly monthly rotation as part of the Coln River Guardians program.
+
+Water quality at PW generally falls within the Water Framework Directive (WFD) bands for lowland high alkalinity rivers, though some parameters exhibit variability. Phosphate levels frequently exceed the High band threshold of 0.1 mg/L, with readings such as 0.77 mg/L on 5 April 2026 and 0.67 mg/L on 6 October 2025 and 4 November 2025 placing the site in the Poor band. Ammonia concentrations are typically within the High or Good bands, though isolated spikes—such as 1.18 mg/L on 6 October 2025 and 0.91 mg/L on 2 May 2026—reach the Moderate band. Nitrate values remain consistently within the High band, with most readings at or below 10 mg/L. Turbidity is generally low, though elevated readings of 30 NTU occurred on multiple dates, including 6 December 2025 and 22 June 2025, placing the site in the Poor band for those instances. Dissolved oxygen was recorded at 0 mg/L on two occasions, 6 October 2025 and 4 November 2025, indicating Poor water quality for those samples.
+
+Notable standout readings include the phosphate peak of 0.77 mg/L in April 2026, the highest recorded at this site, and the ammonia spike of 1.18 mg/L in October 2025. Turbidity reached its maximum observed value of 60 NTU on 6 October 2025, coinciding with a dissolved oxygen reading of 0 mg/L. Depth measurements varied between 5 cm and 20 cm, with no clear seasonal pattern. The data also includes instances of zero values for phosphate, ammonia, and nitrate, suggesting variability in nutrient concentrations over time.
+
+Overall, water quality at PW demonstrates intermittent deviations from High band WFD standards, particularly for phosphate and turbidity. While nitrate and ammonia generally remain within acceptable ranges, the site experiences occasional spikes that push parameters into lower quality bands. The data indicates a pattern of fluctuating conditions rather than a consistent trend, with some parameters showing repeated instances of elevated readings.
+
+Write a report in natural English prose (4 paragraphs). Strike a balance between readability and technical accuracy — do not list every data point, but do cite specific notable values where they support the narrative. Include:
 1. Brief description of the site location and its sampling dates
-2. WFD band assessment for each chemical measured at this site
-3. Notable patterns visible in this site's data, citing specific dates and values
-4. Any specific dates worth flagging from this site's data"""
+2. WFD band context for each chemical measured — highlight which bands the site typically falls in, but avoid exhaustive tallies
+3. Notable standout readings, patterns, or dates worth flagging
+4. A concluding summary paragraph that gives an overall verdict on water quality at this site and the general trend visible in the data"""
 
 
 ROUND_REPORT_PROMPT = """Write a clear, concise water quality summary for sampling round {round_label} ({round_start} to {round_end}) on the River Coln.
@@ -105,12 +113,11 @@ To assess WFD band, compare the round's actual measured values against these thr
 5. Never reference the River Avon. The Coln joins the Thames, not the Avon.
 6. Comparisons between rounds must use the actual date ranges from the data provided.
 7. Never use first person (I, my, we, our). Write as a neutral third-party report.
-8. Cite specific values with units (e.g. "0.25 mg/L"). Every claim about a chemical must include its exact measured value.
-9. Write in plain paragraphs only. No headings, no bold, no bullet lists, no dashes, no asterisks, no pipes, no tables. Just paragraphs of text.
+8. Write in plain paragraphs only. No headings, no bold, no bullet lists, no dashes, no asterisks, no pipes, no tables. Just paragraphs of text.
 
-Write a report in natural English prose (4-6 paragraphs). Include:
+Write a report in natural English prose (5 paragraphs). Strike a balance between readability and technical accuracy — do not list every data point, but do cite specific notable values where they support the narrative. Include:
 1. Overview of this round — when sampling occurred and how many sites were visited
-2. Overall water quality assessment — which WFD band each chemical falls in
-3. Comparison with the previous round — citing the actual averages and date ranges
+2. Overall water quality assessment — which WFD band each chemical generally falls in, rather than exhaustive tallies
+3. Comparison with the previous round — highlighting meaningful changes rather than listing every average
 4. Standout sites or readings worth highlighting from the round data
-5. Summary assessment of river health in this period"""
+5. A concluding summary paragraph giving an overall verdict on river health during this period"""

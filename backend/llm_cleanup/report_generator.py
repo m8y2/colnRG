@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Report generator — spins up an LLM droplet, generates a report,
-stores it in the database, and destroys the droplet.
+"""Report generator — calls Mistral API to generate site/round reports
+and stores them in the database.
 
 Called by the FastAPI backend when a report needs generating.
 
@@ -13,24 +13,20 @@ import argparse
 import json
 import os
 import re
-import subprocess
+import smtplib
 import sys
-import time
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime, timezone
+from email.message import EmailMessage
 
 BP = os.path.join(os.path.dirname(__file__), "..")
 sys.path.insert(0, BP)
 
-DO_API_TOKEN = os.environ.get("DO_API_TOKEN", "")
-DROPLET_SNAPSHOT_ID = os.environ.get("DROPLET_SNAPSHOT_ID", "")
-DROPLET_SIZE = os.environ.get("DROPLET_SIZE", "s-2vcpu-4gb-120gb-intel")
-DROPLET_REGION = os.environ.get("DROPLET_REGION", "lon1")
-SSH_KEY_FINGERPRINT = os.environ.get("SSH_KEY_FINGERPRINT", "")
-DO_API = "https://api.digitalocean.com/v2"
+MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY", "")
+MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "mistral-large-latest")
+MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
 
-from config import PER_PAGE, RATE_LIMIT_DELAY
 from database import get_connection
 from llm_cleanup.report_prompts import SITE_ORDER_TEXT, SITE_ORDER_UPSTREAM_TO_DOWNSTREAM, SITE_REPORT_PROMPT, ROUND_REPORT_PROMPT, MONITORING_CONTEXT
 
@@ -45,128 +41,63 @@ def _strip_markdown(text):
     return text.strip()
 
 
-def do_headers():
-    return {
-        "Authorization": f"Bearer {DO_API_TOKEN}",
-        "Content-Type": "application/json",
-    }
-
-
-def call_do(method, path, data=None):
-    url = f"{DO_API}{path}"
-    req = urllib.request.Request(url, headers=do_headers(), method=method)
-    if data:
-        req.data = json.dumps(data).encode()
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        return json.loads(resp.read().decode())
-
-
-def spin_up_droplet():
-    print("Spinning up LLM droplet for report generation...")
-    config = {
-        "name": f"report-llm-{int(time.time())}",
-        "region": DROPLET_REGION,
-        "size": DROPLET_SIZE,
-        "image": DROPLET_SNAPSHOT_ID,
-        "ssh_keys": [int(SSH_KEY_FINGERPRINT)] if SSH_KEY_FINGERPRINT and SSH_KEY_FINGERPRINT.isdigit() else [],
-        "tags": ["report-llm", "ephemeral"],
-        "monitoring": False,
-    }
-    result = call_do("POST", "/droplets", config)
-    droplet_id = result["droplet"]["id"]
-    print(f"  Droplet {droplet_id} created, waiting for IP...")
+def _send_alert(subject, body):
+    to = os.environ.get("ALERT_EMAIL_TO", "")
+    host = os.environ.get("SMTP_HOST", "")
+    user = os.environ.get("SMTP_USER", "")
+    pw = os.environ.get("SMTP_PASS", "")
+    if not (to and host and user and pw):
+        return
     try:
-        start = time.time()
-        while time.time() - start < 120:
-            info = call_do("GET", f"/droplets/{droplet_id}")
-            networks = info["droplet"].get("networks", {}).get("v4", [])
-            for net in networks:
-                if net.get("type") == "public":
-                    ip = net["ip_address"]
-                    print(f"  Droplet {droplet_id} ready at {ip} ({time.time() - start:.0f}s)")
-                    return droplet_id, ip
-            time.sleep(5)
-        raise RuntimeError(f"Droplet {droplet_id} did not get an IP within 120s")
+        msg = EmailMessage()
+        msg.set_content(body)
+        msg["Subject"] = subject
+        msg["From"] = user
+        msg["To"] = to
+        port = int(os.environ.get("SMTP_PORT", "587"))
+        with smtplib.SMTP(host, port, timeout=30) as s:
+            s.starttls()
+            s.login(user, pw)
+            s.send_message(msg)
     except Exception:
-        print(f"  Cleaning up droplet {droplet_id}...")
-        try:
-            call_do("DELETE", f"/droplets/{droplet_id}")
-        except Exception:
-            pass
-        raise
+        pass
 
 
-def wait_for_ssh(ip, timeout=120):
-    start = time.time()
-    while time.time() - start < timeout:
-        r = subprocess.run(
-            ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5",
-             f"root@{ip}", "echo ready"],
-            capture_output=True, text=True, timeout=10
-        )
-        if r.returncode == 0:
-            print(f"  SSH ready after {time.time() - start:.0f}s")
-            return True
-        print(f"  Waiting for SSH... ({time.time() - start:.0f}s)")
-        time.sleep(10)
-    return False
-
-
-def ensure_ollama(ip, timeout=120):
-    start = time.time()
-    while time.time() - start < timeout:
-        r2 = subprocess.run(
-            ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5", f"root@{ip}",
-             "curl -s -o /dev/null -w '%{http_code}' http://localhost:11434/api/tags 2>/dev/null || echo 000"],
-            capture_output=True, text=True, timeout=15
-        )
-        resp = r2.stdout.strip()
-        if resp == "200":
-            print(f"  Ollama ready after {time.time() - start:.0f}s")
-            r3 = subprocess.run(
-                ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10", f"root@{ip}",
-                 "ollama list 2>/dev/null | grep -q llama3.2 || ollama pull llama3.2:1b"],
-                capture_output=True, text=True, timeout=300
+def query_mistral(system_prompt, user_prompt):
+    if not MISTRAL_API_KEY:
+        raise RuntimeError("MISTRAL_API_KEY environment variable not set")
+    body = {
+        "model": MISTRAL_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.0,
+        "max_tokens": 2048,
+    }
+    payload = json.dumps(body).encode()
+    req = urllib.request.Request(
+        MISTRAL_API_URL, data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {MISTRAL_API_KEY}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            result = json.loads(resp.read().decode())
+            return result["choices"][0]["message"]["content"].strip()
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode()
+        if e.code in (402, 429):
+            _send_alert(
+                f"Mistral API error {e.code}",
+                f"Mistral API returned status {e.code}.\n\nResponse: {error_body}\n\nTimestamp: {datetime.now(timezone.utc).isoformat()}",
             )
-            print(f"  Model check done at {time.time() - start:.0f}s")
-            return True
-        if time.time() - start < 60:
-            subprocess.run(
-                ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5", f"root@{ip}",
-                 "nohup ollama serve > /var/log/ollama-serve.log 2>&1 & echo started"],
-                capture_output=True, text=True, timeout=10
-            )
-        print(f"  Waiting for Ollama... ({resp}, {time.time() - start:.0f}s)")
-        time.sleep(5)
-    return False
-
-
-def run_on_droplet(ip, command):
-    r = subprocess.run(
-        ["ssh", "-o", "StrictHostKeyChecking=no", f"root@{ip}", command],
-        capture_output=True, text=True, timeout=600
-    )
-    if r.stderr:
-        print(r.stderr, file=sys.stderr)
-    return r.returncode, r.stdout
-
-
-def copy_to_droplet(ip, content, remote_path):
-    p = subprocess.run(
-        ["ssh", "-o", "StrictHostKeyChecking=no", f"root@{ip}",
-         f"cat > {remote_path}"],
-        input=content, text=True, timeout=30
-    )
-    return p.returncode
-
-
-def copy_from_droplet(ip, remote_path):
-    r = subprocess.run(
-        ["ssh", "-o", "StrictHostKeyChecking=no", f"root@{ip}",
-         f"cat {remote_path}"],
-        capture_output=True, text=True, timeout=30
-    )
-    return r.stdout
+        raise RuntimeError(f"Mistral API error {e.code}: {error_body}")
+    except (KeyError, IndexError) as e:
+        raise RuntimeError(f"Mistral API unexpected response: {e}")
 
 
 ALL_WFD = {
@@ -242,7 +173,6 @@ def build_round_data(round_label, round_start, round_end):
         (round_start, round_end)
     ).fetchall()
 
-    # Calculate averages
     chems = {"phosphate_level": [], "ammonia_level": [], "nitrate_level": [],
              "turbidity": [], "dissolved_oxygen": [], "conductivity": []}
     lines = []
@@ -259,12 +189,11 @@ def build_round_data(round_label, round_start, round_end):
                     pass
         lines.append(" | ".join(parts))
 
-    # Previous round averages
     prev_rows = conn.execute(
         "SELECT sample_date FROM entries ORDER BY sample_date ASC LIMIT 1"
     ).fetchone()
     prev_start = prev_rows[0] if prev_rows else round_start
-    prev_end = round_start  # day before this round starts
+    prev_end = round_start
 
     prev_avg_rows = conn.execute(
         "SELECT AVG(CASE WHEN phosphate_level != '' THEN CAST(phosphate_level AS REAL) END), "
@@ -308,73 +237,15 @@ def get_site_location_context(site_code):
         return f"On the River Coln, this site is located {' and '.join(dirs)}."
     return ""
 
-def generate_site_report(site_code, progress_callback=None, ip=None):
-    if progress_callback:
-        progress_callback(5, "Building site data context")
-    site_location_context = get_site_location_context(site_code)
-    entries_text = build_site_data(site_code)
-    wfd_thresholds = build_wfd_thresholds(site_code)
-    prompt = SITE_REPORT_PROMPT.format(site_code=site_code, site_location_context=site_location_context, entries=entries_text, wfd_thresholds=wfd_thresholds, site_order=SITE_ORDER_TEXT, monitoring_context=MONITORING_CONTEXT)
-    if progress_callback:
-        progress_callback(10, "Data context ready")
-    if ip:
-        return run_task_on_droplet(ip, "site", prompt, site_code, progress_callback=progress_callback)['report_text']
-    return generate_report("site", prompt, site_code, progress_callback=progress_callback)['report_text']
+
+def _split_prompt(full_prompt):
+    idx = full_prompt.find("## RULES")
+    if idx != -1:
+        return full_prompt[:idx], full_prompt[idx:]
+    return full_prompt, ""
 
 
-def generate_round_report(round_label, round_start, round_end, progress_callback=None, ip=None):
-    if progress_callback:
-        progress_callback(5, "Building round data context")
-    entries_text, avg_line, prev_line = build_round_data(round_label, round_start, round_end)
-    prompt = ROUND_REPORT_PROMPT.format(
-        round_label=round_label, round_start=round_start, round_end=round_end,
-        entries=entries_text, averages=avg_line, previous_averages=prev_line,
-        site_order=SITE_ORDER_TEXT, monitoring_context=MONITORING_CONTEXT,
-    )
-    if progress_callback:
-        progress_callback(10, "Data context ready")
-    if ip:
-        return run_task_on_droplet(ip, "round", prompt, f"{round_label}|{round_start}|{round_end}", progress_callback=progress_callback)['report_text']
-    return generate_report("round", prompt, round_label, progress_callback=progress_callback)['report_text']
-
-
-def run_task_on_droplet(ip, report_type, prompt, identifier, progress_callback=None, system_prompt=None):
-    """Run a single report generation task on an already-set-up droplet (no SSH/Ollama checks)."""
-    worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_worker.py")
-    if system_prompt is None:
-        idx = prompt.find("## RULES")
-        if idx != -1:
-            system_prompt = prompt[idx:]
-            prompt = prompt[:idx]
-        else:
-            system_prompt = ""
-    request = json.dumps({"type": report_type, "system": system_prompt, "prompt": prompt})
-
-    if progress_callback:
-        progress_callback(45, "Copying data to droplet")
-
-    copy_to_droplet(ip, open(worker_script).read(), "/root/report_worker.py")
-    copy_to_droplet(ip, request, "/root/request.json")
-
-    if progress_callback:
-        progress_callback(55, "Generating report via LLM")
-
-    ret, stdout = run_on_droplet(ip, "cd /root && python3 report_worker.py < request.json > report.txt")
-    if ret != 0:
-        raise RuntimeError(f"Worker exited with code {ret}")
-
-    if progress_callback:
-        progress_callback(85, "Retrieving results")
-
-    report_text = copy_from_droplet(ip, "/root/report.txt")
-    if not report_text.strip():
-        raise RuntimeError("Empty report generated")
-    report_text = _strip_markdown(report_text)
-
-    if progress_callback:
-        progress_callback(92, "Saving to database")
-
-    # Store in database
+def _store_report(report_type, identifier, report_text, round_start=None, round_end=None):
     conn = get_connection()
     now = datetime.now(timezone.utc).isoformat()
     version = None
@@ -389,67 +260,84 @@ def run_task_on_droplet(ip, report_type, prompt, identifier, progress_callback=N
             (identifier, now, report_text.strip(), version)
         )
     else:
-        parts = identifier.split("|")
         row = conn.execute(
             "SELECT COALESCE(MAX(version), 0) FROM round_reports WHERE round_label = ?",
-            (parts[0],)
+            (identifier,)
         ).fetchone()
         version = (row[0] or 0) + 1
         conn.execute(
             "INSERT INTO round_reports (round_label, round_start, round_end, generated_at, report_text, version) VALUES (?, ?, ?, ?, ?, ?)",
-            (parts[0], parts[1], parts[2], now, report_text.strip(), version)
+            (identifier, round_start, round_end, now, report_text.strip(), version)
         )
     conn.commit()
     conn.close()
-
-    print(f"  Stored version {version} for {report_type} report '{identifier}'")
-    return {"report_text": report_text.strip(), "version": version}
+    return version
 
 
-def generate_report(report_type, prompt, identifier, progress_callback=None):
-    """Standalone: spin droplet, run task, destroy droplet. Used by CLI."""
-    worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_worker.py")
-    idx = prompt.find("## RULES")
-    if idx != -1:
-        system_prompt = prompt[idx:]
-        prompt = prompt[:idx]
-    else:
-        system_prompt = ""
-    request = json.dumps({"type": report_type, "system": system_prompt, "prompt": prompt})
+def generate_site_report(site_code, progress_callback=None):
+    if progress_callback:
+        progress_callback(5, "Building site data context")
+    site_location_context = get_site_location_context(site_code)
+    entries_text = build_site_data(site_code)
+    wfd_thresholds = build_wfd_thresholds(site_code)
+    full_prompt = SITE_REPORT_PROMPT.format(
+        site_code=site_code, site_location_context=site_location_context,
+        entries=entries_text, wfd_thresholds=wfd_thresholds,
+        site_order=SITE_ORDER_TEXT, monitoring_context=MONITORING_CONTEXT
+    )
+    if progress_callback:
+        progress_callback(10, "Data context ready")
+
+    user_prompt, system_prompt = _split_prompt(full_prompt)
 
     if progress_callback:
-        progress_callback(12, "Spinning up droplet")
+        progress_callback(15, "Generating report via Mistral API")
 
-    droplet_id, ip = spin_up_droplet()
-    try:
-        if progress_callback:
-            progress_callback(25, "Droplet ready, waiting for SSH")
-        if not wait_for_ssh(ip):
-            raise RuntimeError("SSH timeout")
-        if progress_callback:
-            progress_callback(35, "SSH connected, waiting for Ollama")
-        if not ensure_ollama(ip):
-            raise RuntimeError("Ollama not ready")
+    report_text = query_mistral(system_prompt, user_prompt)
+    if not report_text:
+        raise RuntimeError("Empty report generated")
+    report_text = _strip_markdown(report_text)
 
-        result = run_task_on_droplet(ip, report_type, prompt, identifier, progress_callback=progress_callback)
+    if progress_callback:
+        progress_callback(90, "Saving to database")
 
-        if progress_callback:
-            progress_callback(97, "Destroying droplet")
-        print(f"Destroying droplet {droplet_id}...")
-        try:
-            call_do("DELETE", f"/droplets/{droplet_id}")
-        except Exception:
-            pass
+    version = _store_report("site", site_code, report_text)
 
-        return result
+    if progress_callback:
+        progress_callback(100, "Complete")
+    return {"report_text": report_text, "version": version}
 
-    except Exception:
-        print(f"Destroying droplet {droplet_id} after error...")
-        try:
-            call_do("DELETE", f"/droplets/{droplet_id}")
-        except Exception:
-            pass
-        raise
+
+def generate_round_report(round_label, round_start, round_end, progress_callback=None):
+    if progress_callback:
+        progress_callback(5, "Building round data context")
+    entries_text, avg_line, prev_line = build_round_data(round_label, round_start, round_end)
+    full_prompt = ROUND_REPORT_PROMPT.format(
+        round_label=round_label, round_start=round_start, round_end=round_end,
+        entries=entries_text, averages=avg_line, previous_averages=prev_line,
+        site_order=SITE_ORDER_TEXT, monitoring_context=MONITORING_CONTEXT,
+    )
+    if progress_callback:
+        progress_callback(10, "Data context ready")
+
+    user_prompt, system_prompt = _split_prompt(full_prompt)
+
+    if progress_callback:
+        progress_callback(15, "Generating report via Mistral API")
+
+    report_text = query_mistral(system_prompt, user_prompt)
+    if not report_text:
+        raise RuntimeError("Empty report generated")
+    report_text = _strip_markdown(report_text)
+
+    if progress_callback:
+        progress_callback(90, "Saving to database")
+
+    version = _store_report("round", round_label, report_text, round_start, round_end)
+
+    if progress_callback:
+        progress_callback(100, "Complete")
+    return {"report_text": report_text, "version": version}
 
 
 def main():
@@ -461,22 +349,18 @@ def main():
     parser.add_argument("--round-end", help="Round end date")
     args = parser.parse_args()
 
-    if not DO_API_TOKEN:
-        print("DO_API_TOKEN not set", file=sys.stderr)
-        sys.exit(1)
-
     if args.type == "site":
         if not args.site:
             print("--site required for site reports", file=sys.stderr)
             sys.exit(1)
         report = generate_site_report(args.site)
-        print(report)
+        print(report["report_text"])
     else:
         if not all([args.round_label, args.round_start, args.round_end]):
             print("--round-label, --round-start, --round-end required", file=sys.stderr)
             sys.exit(1)
         report = generate_round_report(args.round_label, args.round_start, args.round_end)
-        print(report)
+        print(report["report_text"])
 
 
 if __name__ == "__main__":
