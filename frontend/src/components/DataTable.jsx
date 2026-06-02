@@ -14,6 +14,8 @@ const COLS = [
   { key: "turbidity", label: "Turbidity" },
   { key: "dissolved_oxygen", label: "DO" },
   { key: "conductivity", label: "Conductivity" },
+  { key: "latitude", label: "Latitude" },
+  { key: "longitude", label: "Longitude" },
 ];
 
 const NUMERIC_KEYS = new Set([
@@ -142,6 +144,10 @@ function formatCell(val, key) {
   if (key === "water_depth_cm") {
     const n = parseFloat(val);
     return isNaN(n) ? val : n.toFixed(1);
+  }
+  if (key === "latitude" || key === "longitude") {
+    const n = parseFloat(val);
+    return isNaN(n) ? "—" : n.toFixed(6);
   }
   return String(val);
 }
