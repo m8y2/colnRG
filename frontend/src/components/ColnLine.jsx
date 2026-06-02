@@ -2,31 +2,31 @@ import { useState, useRef } from "react";
 import { getSiteSummary } from "../api";
 
 const SITES = [
-  { code: "EP", name: "Ewen/Preston" },
-  { code: "PW", name: "Poole Keynes" },
-  { code: "SJR", name: "Sid/Jacks/River" },
-  { code: "MG", name: "Milton Garth" },
-  { code: "NL", name: "New Mills Lat" },
-  { code: "ST/LAT", name: "Stratton/Latten" },
-  { code: "CS", name: "Cirencester/Sidd" },
-  { code: "WMW", name: "Winson/Meadow/Whelford" },
-  { code: "GED", name: "Gravelly End D" },
-  { code: "DFG", name: "Dunfields Farm G" },
-  { code: "GDR", name: "Gravelly Ditch R" },
-  { code: "CAK", name: "Church Acre K" },
-  { code: "JD", name: "Jackdaw Ditch" },
-  { code: "KH", name: "Kempsford Hams" },
-  { code: "SM", name: "Somerford M" },
-  { code: "HB", name: "Horcott Bridge" },
-  { code: "DD", name: "Downington D" },
-  { code: "MH", name: "Milton Ham" },
-  { code: "TJ", name: "Trewsbury J" },
-  { code: "PIC", name: "Pindale C" },
-  { code: "DC", name: "Derry C" },
-  { code: "DK", name: "Downington K" },
-  { code: "OB", name: "Old Bridge" },
-  { code: "PT/M", name: "Pinsley T/M" },
-  { code: "PT", name: "Poulton/Tetbury" },
+  { code: "EP" },
+  { code: "PW" },
+  { code: "SJR" },
+  { code: "MG" },
+  { code: "NL" },
+  { code: "ST/LAT" },
+  { code: "CS" },
+  { code: "WMW" },
+  { code: "GED" },
+  { code: "DFG" },
+  { code: "GDR" },
+  { code: "CAK" },
+  { code: "JD" },
+  { code: "KH" },
+  { code: "SM" },
+  { code: "HB" },
+  { code: "DD" },
+  { code: "MH" },
+  { code: "TJ" },
+  { code: "PIC" },
+  { code: "DC" },
+  { code: "DK" },
+  { code: "OB" },
+  { code: "PT/M" },
+  { code: "PT" },
 ];
 
 const CX = 300;
@@ -94,7 +94,7 @@ export default function ColnLine({ darkMode }) {
         >
           <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", fontSize: "0.8rem", color: "var(--text)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <strong style={{ fontSize: "0.9rem", color: "var(--text)" }}>{popup.site} — {popup.name}</strong>
+              <strong style={{ fontSize: "0.9rem", color: "var(--text)" }}>{popup.site}</strong>
               <span
                 onClick={() => setPopup(null)}
                 style={{ cursor: "pointer", color: "var(--text-muted)", fontSize: "1.1rem", lineHeight: 1 }}
@@ -172,9 +172,6 @@ export default function ColnLine({ darkMode }) {
               <g style={{ cursor: "pointer" }} onClick={() => handleClick(site.code, y, isLeft)}>
                 <text x={tx} y={y + 5} textAnchor={ta} fill="#9ca3af" fontSize={13} fontWeight={600}>
                   {site.code}
-                </text>
-                <text x={tx} y={y - 10} textAnchor={ta} fill="#9ca3af" fontSize={10}>
-                  {site.name}
                 </text>
                 <line
                   x1={ta === "end" ? tx + 2 : tx - 2}

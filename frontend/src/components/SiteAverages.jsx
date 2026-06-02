@@ -73,7 +73,7 @@ export default function SiteAverages() {
             />
             <Tooltip
               formatter={(v, n, props) => [v?.toFixed?.(4) ?? v, "Mean"]}
-              labelFormatter={(label) => `${label} — ${chartData.find((d) => d.site === label)?.name || ""}`}
+              labelFormatter={(label) => label}
             />
             {refLevels &&
               Object.entries(refLevels).map(([label, val]) => (

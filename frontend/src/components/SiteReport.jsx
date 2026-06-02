@@ -120,7 +120,7 @@ export default function SiteReport({ onReportTriggered }) {
           <label>
             Site:
             <AnimatedSelect
-              options={sites.map((s) => ({ value: s.code, label: `${s.code} — ${s.name}` }))}
+              options={sites.map((s) => ({ value: s.code, label: s.code }))}
               value={selectedSite}
               onChange={setSelectedSite}
             />

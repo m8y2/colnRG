@@ -8,7 +8,7 @@ from collections import defaultdict
 from fastapi import FastAPI, Query, Header, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from database import get_connection, init_db, get_last_sync
-from sync import run_sync, SITE_CODE_MAP
+from sync import run_sync
 from coords import SITE_COORDS, SITE_DOWNSTREAM_ORDER
 from llm_cleanup.report_generator import generate_site_report, generate_round_report
 
@@ -147,7 +147,7 @@ def get_sites():
         code = r["w3w_site_code"]
         sites.append({
             "code": code,
-            "name": SITE_CODE_MAP.get(code, code),
+            "name": code,
             "count": r["count"],
             "first_seen": r["first_seen"],
             "last_seen": r["last_seen"],
@@ -384,7 +384,7 @@ def get_location_series(
             code = sr["w3w_site_code"]
             sites_data.append({
                 "code": code,
-                "name": SITE_CODE_MAP.get(code, code),
+                "name": code,
                 "mean": round(sr["mean"], 4) if sr["mean"] is not None else None,
                 "count": sr["cnt"],
                 "_order": SITE_DOWNSTREAM_ORDER.get(code, 999),
@@ -448,7 +448,7 @@ def get_site_averages(
         mean_val = round(r["mean_val"], 4) if r["mean_val"] is not None else None
         sites.append({
             "code": code,
-            "name": SITE_CODE_MAP.get(code, code),
+            "name": code,
             "mean": mean_val,
             "min": round(r["min_val"], 4) if r["min_val"] is not None else None,
             "max": round(r["max_val"], 4) if r["max_val"] is not None else None,
@@ -491,7 +491,7 @@ def get_site_summary(site: str = Query(..., min_length=1)):
                 "unit": get_unit(name),
             }
     conn.close()
-    return {"site": site, "name": SITE_CODE_MAP.get(site, site), "chemicals": results}
+    return {"site": site, "name": site, "chemicals": results}
 
 
 # ── Report endpoints ──────────────────────────────────────────────

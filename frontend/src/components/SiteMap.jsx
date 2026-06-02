@@ -13,7 +13,7 @@ const POPUP_STYLE = {
 function buildPopupHtml(site) {
   return `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-width:180px">
-      <strong style="font-size:0.95rem">${site.code} — ${site.name}</strong>
+      <strong style="font-size:0.95rem">${site.code}</strong>
       <div id="summary-${site.code}" style="margin-top:8px;font-size:0.8rem;color:#4b5563">Loading…</div>
     </div>
   `;
@@ -107,7 +107,7 @@ export default function SiteMap({ sites, darkMode }) {
       const lbl = L.marker([lblLat, lblLng], {
         icon: L.divIcon({
           className: "",
-          html: `<div style="display:inline-block;white-space:nowrap;font-size:11px;font-weight:600;color:#1a56db;background:rgba(255,255,255,0.92);padding:2px 7px;border-radius:4px;border:1px solid #d1d5db;box-shadow:0 1px 3px rgba(0,0,0,0.1)">${site.code} — ${site.name}</div>`,
+          html: `<div style="display:inline-block;white-space:nowrap;font-size:11px;font-weight:600;color:#1a56db;background:rgba(255,255,255,0.92);padding:2px 7px;border-radius:4px;border:1px solid #d1d5db;box-shadow:0 1px 3px rgba(0,0,0,0.1)">${site.code}</div>`,
           iconSize: [0, 0],
           iconAnchor: [0, 14],
         }),

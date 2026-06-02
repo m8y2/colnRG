@@ -69,6 +69,18 @@ run.py     Orchestrator script (uses Node 22 at /usr/local/opt/node@22/bin/node)
 | `backend/clean_data.py` | Post-sync cleanup (outlier fixup, text→numeric) |
 | `backend/sync_runner.py` | Oneshot script called by coln-sync.service (init_db + sync + clean) |
 | `frontend/src/api.js` | All API call wrappers |
+| `frontend/index.html` | Inline CSS (no separate CSS request) to avoid render-blocking |
+| `frontend/public/robots.txt` | Points to sitemap |
+| `frontend/public/sitemap.xml` | Single-URL sitemap for SEO |
+| `frontend/src/components/OverviewChart.jsx` | Lazy-loaded overview chart wrapper (code-splits recharts) |
+
+## PageSpeed / Performance notes
+
+- CSS is inlined in `index.html` (not imported via JS) to eliminate render-blocking CSS requests
+- `OverviewChart.jsx` is a separate lazy-loaded chunk that defers recharts (350KB) until the overview tab renders
+- `robots.txt` + `sitemap.xml` exist in `public/` for SEO
+- All components use `React.lazy()` + `Suspense` for code splitting
+- Build output is deployed to `/opt/coln-dashboard/frontend/dist/` on the droplet
 
 ## Deploy
 

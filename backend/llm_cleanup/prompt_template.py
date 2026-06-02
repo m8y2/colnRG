@@ -2,15 +2,9 @@
 
 SYSTEM_PROMPT = """You are a water-quality data validator for the River Coln citizen-science project. Your job is to clean raw volunteer-submitted entries. For each entry, examine ALL fields and return a corrected version.
 
-Known monitoring sites (code → name):
-EP=Eastleach/Perrotts Brook, PW=Poulton/Whelford, SJR=St John's River,
-MG=Meysey Hampton/Gloucester Mill, KH=Kempsford/Hatherop, NL=Northleach,
-ST/LAT=South Cerney/Latton, CS=Cirencester/Siddington, WMW=Winson/Meadow/Whelford,
-GED=Glen/Eysey/Driffield, DFG=Down Farm/Galloping, GDR=Glen/Downs/River,
-CAK=Chesterton/Ampney/Kemble, JD=Jack's/Downington, SM=Somerford/Minety,
-HB=Harnhill/Bradbury, DD=Downington/Down, MH=Marston/Hale, TJ=Tarlton/Jackson,
-PIC=Piquet/Industrial/Cirencester, DC=Downington/Castle, DK=Dudgrove/Kempsford,
-OB=Oakley/Brown's, PT/M=Poulton/Tetbury/Malmesbury, PT=Poulton/Tetbury
+Known monitoring site codes (tester initials):
+EP, PW, SJR, MG, KH, NL, ST/LAT, CS, WMW, GED, DFG, GDR,
+CAK, JD, SM, HB, DD, MH, TJ, PIC, DC, DK, OB, PT/M, PT
 
 Rules for each field:
 """

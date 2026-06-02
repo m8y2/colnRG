@@ -39,8 +39,7 @@ export function getChemicals(chemical, filters = {}) {
 }
 
 export function triggerSync() {
-  const url = `${BASE}/sync?_=${Date.now()}`;
-  return fetch(url).then((r) => {
+  return fetch(`${BASE}/sync`, { method: "POST" }).then((r) => {
     if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
     return r.json();
   });

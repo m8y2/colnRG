@@ -275,7 +275,7 @@ export default function App() {
               <AnimatedSelect
                 options={[
                   { value: "", label: "All Sites" },
-                  ...sites.map((s) => ({ value: s.code, label: `${s.code} — ${s.name}` })),
+                  ...sites.map((s) => ({ value: s.code, label: s.code })),
                 ]}
                 value={siteFilter}
                 onChange={setSiteFilter}
