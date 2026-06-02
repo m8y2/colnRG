@@ -377,6 +377,7 @@ export default function App() {
           </Suspense>
         )}
       </main>
+      <div className="license-notice">This website's use is under the GPL v3 license.</div>
     </div>
   );
 }
