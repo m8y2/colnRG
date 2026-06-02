@@ -50,6 +50,16 @@ def extract_site_code(w3w_answer):
             return code
     return None
 
+
+def strip_initials_from_w3w(w3w_answer):
+    if not w3w_answer:
+        return w3w_answer
+    parts = w3w_answer.strip().split()
+    if len(parts) >= 2 and parts[-1] in SITE_CODE_MAP:
+        return " ".join(parts[:-1])
+    return w3w_answer
+    return None
+
 def extract_site_code_other(w3w_other):
     if not w3w_other:
         return None
@@ -123,7 +133,7 @@ def parse_entries(json_data):
             "created_at": entry.get("created_at", ""),
             "uploaded_at": entry.get("uploaded_at", ""),
             "title": entry.get("title", ""),
-            "w3w": w3w_answer,
+            "w3w": strip_initials_from_w3w(w3w_answer),
             "w3w_site_code": site_code,
             "w3w_other": w3w_other,
             "landowner": entry.get(FIELD_KEYS[4], ""),
