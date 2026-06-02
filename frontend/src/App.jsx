@@ -3,10 +3,7 @@ import { getStats, getSites, triggerSync, getSyncLog, getReportStatus, clearCach
 import StatsCards from "./components/StatsCards";
 import ChemicalSelect from "./components/ChemicalSelect";
 import AnimatedSelect from "./components/AnimatedSelect";
-import { CHEMICALS } from "./utils";
-
-const SiteMap = lazy(() => import("./components/SiteMap"));
-const ColnLine = lazy(() => import("./components/ColnLine"));
+const OverviewChart = lazy(() => import("./components/OverviewChart"));
 const TimeSeriesChart = lazy(() => import("./components/TimeSeriesChart"));
 const LocationSeries = lazy(() => import("./components/LocationSeries"));
 const SiteAverages = lazy(() => import("./components/SiteAverages"));
@@ -14,6 +11,9 @@ const DataTable = lazy(() => import("./components/DataTable"));
 const PhotoGallery = lazy(() => import("./components/PhotoGallery"));
 const SiteReport = lazy(() => import("./components/SiteReport"));
 const RoundReport = lazy(() => import("./components/RoundReport"));
+
+const SiteMap = lazy(() => import("./components/SiteMap"));
+const ColnLine = lazy(() => import("./components/ColnLine"));
 
 export default function App() {
   const [stats, setStats] = useState(null);
@@ -250,18 +250,21 @@ export default function App() {
         >
           Photo Gallery
         </button>
-        <button
-          className={`tab ${tab === "site-report" ? "active" : ""}`}
-          onClick={() => switchTab("site-report")}
-        >
-          Site Report
-        </button>
-        <button
-          className={`tab ${tab === "round-report" ? "active" : ""}`}
-          onClick={() => switchTab("round-report")}
-        >
-          Round Report
-        </button>
+        <div className="beta-group">
+          <span className="beta-badge">Beta</span>
+          <button
+            className={`tab ${tab === "site-report" ? "active" : ""}`}
+            onClick={() => switchTab("site-report")}
+          >
+            Site Report
+          </button>
+          <button
+            className={`tab ${tab === "round-report" ? "active" : ""}`}
+            onClick={() => switchTab("round-report")}
+          >
+            Round Report
+          </button>
+        </div>
       </div>
 
       <main className="tab-content" key={tab}>
@@ -300,10 +303,12 @@ export default function App() {
         {tab === "overview" && (
           <>
             <StatsCards stats={stats} />
-            <OverviewChart
-              chemical={overviewChemical}
-              onSwitch={setOverviewChemical}
-            />
+            <Suspense fallback={<div className="loading">Loading chart...</div>}>
+              <OverviewChart
+                chemical={overviewChemical}
+                onSwitch={setOverviewChemical}
+              />
+            </Suspense>
           </>
         )}
 
@@ -372,23 +377,6 @@ export default function App() {
           </Suspense>
         )}
       </main>
-    </div>
-  );
-}
-
-function OverviewChart({ chemical, onSwitch }) {
-  const idx = CHEMICALS.findIndex((c) => c.value === chemical);
-  const cycle = () => {
-    const next = (idx + 1) % CHEMICALS.length;
-    onSwitch(CHEMICALS[next].value);
-  };
-
-  return (
-    <div className="chart-section" style={{ cursor: "pointer" }} onClick={cycle} title="Click to cycle chemicals">
-      <TimeSeriesChart chemical={chemical} height={250} />
-      <p style={{ fontSize: "0.7rem", color: "#6b7280", textAlign: "center", marginTop: 4 }}>
-        Click to cycle through chemicals
-      </p>
     </div>
   );
 }
