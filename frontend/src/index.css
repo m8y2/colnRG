@@ -277,7 +277,7 @@ body {
 }
 
 .beta-group .tab.active {
-  border-bottom: none;
+  border-bottom: none !important;
 }
 
 .loading {

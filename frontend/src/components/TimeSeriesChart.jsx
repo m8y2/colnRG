@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import {
   ComposedChart,
   Line,
@@ -36,44 +36,41 @@ const REF_COLORS = {
   Poor: "#ef4444",
 };
 
-export default function TimeSeriesChart({
+function TimeSeriesChart({
   chemical,
   siteFilter,
   height = 300,
 }) {
-  const [data, setData] = useState([]);
+  const [raw, setRaw] = useState([]);
   const [refLevels, setRefLevels] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const params = { chemical };
-    if (siteFilter) params.site = siteFilter;
     getRounds(chemical, siteFilter).then((result) => {
       if (cancelled) return;
-      const chartData = result.rounds.map((r) => {
-        const entry = {
-          round: `R${r.round}\n${fmtShortDate(r.start)}`,
-          roundNum: r.round,
-          mean: r.mean,
-          low: r.min,
-          high: r.max,
-          count: r.count,
-        };
-        if (r.site_readings && r.site_readings.length > 0) {
-          entry.siteValue = r.site_readings[r.site_readings.length - 1].value;
-        }
-        return entry;
-      });
-      setData(chartData);
+      setRaw(result.rounds || []);
       setRefLevels(result.reference_levels);
       setLoading(false);
     });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [chemical, siteFilter]);
+
+  const data = useMemo(() => raw.map((r) => {
+    const entry = {
+      round: `R${r.round}\n${fmtShortDate(r.start)}`,
+      roundNum: r.round,
+      mean: r.mean,
+      low: r.min,
+      high: r.max,
+      count: r.count,
+    };
+    if (r.site_readings && r.site_readings.length > 0) {
+      entry.siteValue = r.site_readings[r.site_readings.length - 1].value;
+    }
+    return entry;
+  }), [raw]);
 
   const info = LABELS[chemical] || { label: chemical, unit: "", color: "#666" };
   const lineType = chemical === "nitrate" ? "stepBefore" : "monotone";
@@ -201,3 +198,5 @@ export default function TimeSeriesChart({
     </div>
   );
 }
+
+export default memo(TimeSeriesChart);

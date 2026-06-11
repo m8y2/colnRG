@@ -3,6 +3,8 @@ import os
 import secrets
 import threading
 import time
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from collections import defaultdict
 from fastapi import FastAPI, Query, Header, HTTPException, BackgroundTasks
@@ -21,6 +23,47 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Photo URL validation cache (background-threaded)
+_photo_cache = {}
+_PHOTO_LOCK = threading.Lock()
+
+def _is_real_photo(url):
+    try:
+        req = urllib.request.Request(url, method="HEAD")
+        resp = urllib.request.urlopen(req, timeout=5)
+        cc = resp.headers.get("Cache-Control", "")
+        return "no-store" not in cc and resp.headers.get("Content-Type", "").startswith("image/")
+    except Exception:
+        return False
+
+def _build_photo_cache():
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT photo_url, photo_2_url FROM entries "
+        "WHERE (photo_url IS NOT NULL AND photo_url != '') "
+        "OR (photo_2_url IS NOT NULL AND photo_2_url != '')"
+    ).fetchall()
+    conn.close()
+    urls = set()
+    for r in rows:
+        if r["photo_url"]: urls.add(r["photo_url"])
+        if r["photo_2_url"]: urls.add(r["photo_2_url"])
+    cache = {}
+    with ThreadPoolExecutor(max_workers=20) as pool:
+        fut_map = {pool.submit(_is_real_photo, u): u for u in urls}
+        for fut in as_completed(fut_map):
+            url = fut_map[fut]
+            try:
+                cache[url] = fut.result()
+            except Exception:
+                cache[url] = False
+    with _PHOTO_LOCK:
+        _photo_cache.clear()
+        _photo_cache.update(cache)
+
+# Warm cache on startup; errors are non-fatal
+threading.Thread(target=_build_photo_cache, daemon=True).start()
 
 
 @app.on_event("startup")
@@ -126,7 +169,22 @@ def get_photos():
         "ORDER BY sample_date DESC"
     ).fetchall()
     conn.close()
-    return {"photos": [dict(r) for r in rows]}
+
+    photos = [dict(r) for r in rows]
+
+    # Use warm cache to filter placeholders
+    with _PHOTO_LOCK:
+        cache = dict(_photo_cache)
+
+    if cache:
+        for p in photos:
+            for key in ("photo_url", "photo_2_url"):
+                u = p.get(key)
+                if u and u in cache and not cache[u]:
+                    p[key] = ""
+        photos = [p for p in photos if p.get("photo_url") or p.get("photo_2_url")]
+
+    return {"photos": photos}
 
 
 @app.get("/api/sites")
