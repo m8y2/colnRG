@@ -3,8 +3,6 @@ import os
 import secrets
 import threading
 import time
-import urllib.request
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from collections import defaultdict
 from fastapi import FastAPI, Query, Header, HTTPException, BackgroundTasks
@@ -118,26 +116,6 @@ def get_entries(
     }
 
 
-_photo_cache = {}
-_PHOTO_CACHE_TTL = 3600
-
-def _is_real_photo(url):
-    """Check if a photo URL returns a real image (not an EpiCollect placeholder)."""
-    now = time.time()
-    cached = _photo_cache.get(url)
-    if cached and now - cached["time"] < _PHOTO_CACHE_TTL:
-        return cached["valid"]
-    try:
-        req = urllib.request.Request(url, method="HEAD")
-        resp = urllib.request.urlopen(req, timeout=5)
-        cc = resp.headers.get("Cache-Control", "")
-        valid = "no-store" not in cc and resp.headers.get("Content-Type", "").startswith("image/")
-    except Exception:
-        valid = False
-    _photo_cache[url] = {"valid": valid, "time": now}
-    return valid
-
-
 @app.get("/api/photos")
 def get_photos():
     conn = get_connection()
@@ -148,32 +126,7 @@ def get_photos():
         "ORDER BY sample_date DESC"
     ).fetchall()
     conn.close()
-
-    photos = [dict(r) for r in rows]
-
-    # Validate photo URLs in parallel, filter out EpiCollect placeholders
-    all_urls = {}
-    for p in photos:
-        for key in ("photo_url", "photo_2_url"):
-            u = p.get(key)
-            if u:
-                all_urls[u] = (p, key)
-
-    with ThreadPoolExecutor(max_workers=20) as pool:
-        fut_map = {pool.submit(_is_real_photo, url): url for url in all_urls}
-        for fut in as_completed(fut_map):
-            url = fut_map[fut]
-            p, key = all_urls[url]
-            try:
-                if not fut.result():
-                    p[key] = ""
-            except Exception:
-                p[key] = ""
-
-    # Remove entries with no valid photos left
-    photos = [p for p in photos if p.get("photo_url") or p.get("photo_2_url")]
-
-    return {"photos": photos}
+    return {"photos": [dict(r) for r in rows]}
 
 
 @app.get("/api/sites")

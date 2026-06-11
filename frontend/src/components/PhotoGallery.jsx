@@ -5,6 +5,7 @@ export default function PhotoGallery() {
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [hidden, setHidden] = useState(new Set());
 
   useEffect(() => {
     getPhotos().then((result) => {
@@ -13,13 +14,23 @@ export default function PhotoGallery() {
     });
   }, []);
 
+  const handleError = (url) => {
+    setHidden((prev) => new Set(prev).add(url));
+  };
+
   const handleSelect = (p) => {
     setSelected((prev) => (prev?.ec5_uuid === p.ec5_uuid ? null : p));
   };
 
+  const visible = photos.filter(
+    (p) =>
+      !hidden.has(p.photo_url) &&
+      (!p.photo_2_url || !hidden.has(p.photo_2_url))
+  );
+
   if (loading) return <div className="loading">Loading photos...</div>;
 
-  if (photos.length === 0)
+  if (visible.length === 0)
     return <div className="loading">No photos found.</div>;
 
   return (
@@ -28,15 +39,19 @@ export default function PhotoGallery() {
         Photo Gallery ({photos.length} entries with photos)
       </h2>
       <div className="photo-grid">
-        {photos.map((p) => {
+        {visible.map((p) => {
           const isOpen = selected?.ec5_uuid === p.ec5_uuid;
+          const src = p.photo_url || p.photo_2_url;
           return (
             <div key={p.ec5_uuid} className={`photo-tile${isOpen ? " photo-tile-open" : ""}`} onClick={() => handleSelect(p)}>
-              <img
-                src={p.photo_url || p.photo_2_url}
-                alt={p.photo_desc || "Photo"}
-                loading="lazy"
-              />
+              {!hidden.has(src) && (
+                <img
+                  src={src}
+                  alt={p.photo_desc || "Photo"}
+                  loading="lazy"
+                  onError={() => handleError(src)}
+                />
+              )}
               <div className="photo-tile-info">
                 {p.w3w_site_code && <span>{p.w3w_site_code}</span>}
                 <span>{p.sample_date}</span>
