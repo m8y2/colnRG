@@ -58,6 +58,17 @@ run.py     Orchestrator script (uses Node 22 at /usr/local/opt/node@22/bin/node)
 - **d3-shape "does not provide an export named 'default'"** — Stale Vite dep cache after `npm install` or version changes. Fix: `rm -rf frontend/node_modules/.vite`
 - **Port 8000 "Address already in use"** — Stale uvicorn process from a prior run. Fix: `lsof -ti:8000 | xargs kill -9`
 
+## Lessons learnt — CSS architecture
+
+**The inline `<style>` block in `frontend/index.html` is the production CSS, NOT `src/index.css`.**
+
+The build (`npm run build`) copies `index.html` as-is into `dist/` — it does NOT generate the inline CSS from `src/index.css`. Changes to `src/index.css` only affect `npm run dev`, not the deployed site. Always edit the inline CSS in `index.html` for production changes, then rebuild.
+
+When working on the beta-group tabs:
+- `.tab.active` applies the blue `border-bottom-color: var(--primary)` underline
+- To avoid the underline on beta tabs, use a separate class (e.g. `beta-active`) instead of `active`, so `.tab.active` doesn't match
+- The beta-group box styling (border, badge) is defined in the inline CSS in `index.html` — edit there, not just `src/index.css`
+
 ## Key files
 
 | File | Role |
@@ -84,17 +95,22 @@ run.py     Orchestrator script (uses Node 22 at /usr/local/opt/node@22/bin/node)
 
 ## Deploy
 
+> Verified against the live droplet 2026-06-18. `MIGRATION.md` (in the parent folder) is the source of truth for infra and supersedes this section.
+
 | | |
 |---|---|
-| **URL** | `http://161.35.168.168/` |
-| **Droplet** | Ubuntu 24.04, 1vCPU/512MB, London |
+| **URL** | `https://www.colnrg.app` (canonical). `http://161.35.168.168/` 301-redirects here. |
+| **Droplet** | Ubuntu 24.04, 1vCPU/512MB, London; IP `161.35.168.168` |
 | **SSH** | `ssh -i ~/.ssh/id_ed25519 root@161.35.168.168` |
+| **SSL** | Sectigo cert on :443. `:80` → 301 to `https://www.colnrg.app`. |
 | **Frontend** | Served by nginx from `/opt/coln-dashboard/frontend/dist/` |
 | **Backend** | FastAPI behind nginx proxy `/api` → `127.0.0.1:8000`, 1 uvicorn worker (required for in-memory report queue) |
 | **Auto-start** | nginx + coln-api.service + coln-sync.timer (daily 06:00) all systemd-enabled |
 | **Swap** | 1GB swapfile added for `npm run build` (512MB RAM is tight) |
-| **Build locally, rsync** | `npm run build && rsync -e 'ssh -i ~/.ssh/id_ed25519' -avz dist/ root@161.35.168.168:/opt/coln-dashboard/frontend/dist/` |
-| **Re-deploy after changes** | `git push` → `ssh root@161.35.168.168 'cd /opt/coln-dashboard && git pull && systemctl restart coln-api.service'` + rebuild/rsync frontend |
+| **Build locally, rsync** | `npm run build && rsync -e 'ssh -i ~/.ssh/id_ed25519' -avz dist/ root@161.35.168.168:/opt/coln-dashboard/frontend/dist/` (run from `frontend/`) |
+| **Re-deploy after changes** | `ssh root@161.35.168.168 'cd /opt/coln-dashboard && git pull && systemctl restart coln-api.service'` + rebuild/rsync frontend |
+
+**The repo's `deploy/nginx.conf` is HTTP-only and will NOT reproduce HTTPS.** The live `/etc/nginx/sites-enabled/coln-dashboard` differs (Sectigo cert, :80→:443 redirect, security/injection headers). See `MIGRATION.md` "Live nginx config" for the real config and cert-restore steps.
 
 ## LLM-based data cleaning pipeline
 
@@ -266,9 +282,10 @@ External sites can request and retrieve reports via a key-authenticated API. Key
 
 ### Authentication
 
-All requests require an `api_key` query parameter:
+All requests require an `X-Api-Key` header:
+
 ```
-?api_key=YOUR_API_KEY
+X-Api-Key: YOUR_API_KEY
 ```
 
 ### Admin keys
@@ -287,10 +304,10 @@ Set the `ADMIN_API_KEY` environment variable on the droplet to authorize key man
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/v1/reports/site?site=XXX&api_key=KEY` | Get latest site report |
-| GET | `/api/v1/reports/round?round_label=Round%20N&api_key=KEY` | Get latest round report |
-| POST | `/api/v1/reports/site/generate?site=XXX&api_key=KEY` | Trigger site report generation |
-| POST | `/api/v1/reports/round/generate?round_label=Round%20N&round_start=YYYY-MM-DD&round_end=YYYY-MM-DD&api_key=KEY` | Trigger round report generation |
+| GET | `/api/v1/reports/site?site=XXX` | Get latest site report |
+| GET | `/api/v1/reports/round?round_label=Round%20N` | Get latest round report |
+| POST | `/api/v1/reports/site/generate?site=XXX` | Trigger site report generation |
+| POST | `/api/v1/reports/round/generate?round_label=Round%20N&round_start=YYYY-MM-DD&round_end=YYYY-MM-DD` | Trigger round report generation |
 
 ### Example usage
 
@@ -299,13 +316,13 @@ Set the `ADMIN_API_KEY` environment variable on the droplet to authorize key man
 curl -X POST "https://161.35.168.168/api/v1/admin/keys/generate?admin_key=ADMIN_KEY&label=my-app"
 
 # Get the latest PW site report
-curl "https://161.35.168.168/api/v1/reports/site?site=PW&api_key=YOUR_KEY"
+curl -H "X-Api-Key: YOUR_KEY" "https://161.35.168.168/api/v1/reports/site?site=PW"
 
 # Trigger PW report generation  
-curl -X POST "https://161.35.168.168/api/v1/reports/site/generate?site=PW&api_key=YOUR_KEY"
+curl -X POST -H "X-Api-Key: YOUR_KEY" "https://161.35.168.168/api/v1/reports/site/generate?site=PW"
 
 # Get Round 6 report
-curl "https://161.35.168.168/api/v1/reports/round?round_label=Round%206&api_key=YOUR_KEY"
+curl -H "X-Api-Key: YOUR_KEY" "https://161.35.168.168/api/v1/reports/round?round_label=Round%206"
 
 # List all API keys (admin only)
 curl "https://161.35.168.168/api/v1/admin/keys/list?admin_key=ADMIN_KEY"

@@ -182,7 +182,13 @@ def get_photos():
                 u = p.get(key)
                 if u and u in cache and not cache[u]:
                     p[key] = ""
-        photos = [p for p in photos if p.get("photo_url") or p.get("photo_2_url")]
+
+    # Filter out non-http URLs (placeholder text like "Photo not synced yet")
+    photos = [
+        p for p in photos
+        if (p.get("photo_url") and p["photo_url"].startswith("http"))
+        or (p.get("photo_2_url") and p["photo_2_url"].startswith("http"))
+    ]
 
     return {"photos": photos}
 
@@ -821,7 +827,7 @@ def revoke_api_key(key_id: int = Query(...), authorization: str = Header(...)):
 
 
 @app.get("/api/v1/reports/site")
-def v1_get_site_report(site: str = Query(...), api_key: str = Query(...)):
+def v1_get_site_report(site: str = Query(...), api_key: str = Header(alias="X-Api-Key")):
     require_api_key(api_key)
     conn = get_connection()
     row = conn.execute(
@@ -835,7 +841,7 @@ def v1_get_site_report(site: str = Query(...), api_key: str = Query(...)):
 
 
 @app.get("/api/v1/reports/round")
-def v1_get_round_report(round_label: str = Query(...), api_key: str = Query(...)):
+def v1_get_round_report(round_label: str = Query(...), api_key: str = Header(alias="X-Api-Key")):
     require_api_key(api_key)
     conn = get_connection()
     row = conn.execute(
@@ -849,7 +855,7 @@ def v1_get_round_report(round_label: str = Query(...), api_key: str = Query(...)
 
 
 @app.post("/api/v1/reports/site/generate")
-def v1_trigger_site_report(site: str = Query(...), api_key: str = Query(...)):
+def v1_trigger_site_report(site: str = Query(...), api_key: str = Header(alias="X-Api-Key")):
     require_api_key(api_key)
     task_id = f"site_{site}"
     with _report_queue_lock:
@@ -867,7 +873,7 @@ def v1_trigger_round_report(
     round_label: str = Query(...),
     round_start: str = Query(...),
     round_end: str = Query(...),
-    api_key: str = Query(...),
+    api_key: str = Header(alias="X-Api-Key"),
 ):
     require_api_key(api_key)
     task_id = f"round_{round_label}"

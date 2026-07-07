@@ -22,8 +22,11 @@ export default function PhotoGallery() {
     setSelected((prev) => (prev?.ec5_uuid === p.ec5_uuid ? null : p));
   };
 
+  const isValid = (u) => u && (u.startsWith("http://") || u.startsWith("https://"));
+
   const visible = photos.filter(
     (p) =>
+      (isValid(p.photo_url) || isValid(p.photo_2_url)) &&
       !hidden.has(p.photo_url) &&
       (!p.photo_2_url || !hidden.has(p.photo_2_url))
   );
@@ -36,12 +39,12 @@ export default function PhotoGallery() {
   return (
     <div>
       <h2 className="chart-section-heading">
-        Photo Gallery ({photos.length} entries with photos)
+        Photo Gallery ({visible.length} entries)
       </h2>
       <div className="photo-grid">
         {visible.map((p) => {
           const isOpen = selected?.ec5_uuid === p.ec5_uuid;
-          const src = p.photo_url || p.photo_2_url;
+          const src = isValid(p.photo_url) ? p.photo_url : p.photo_2_url;
           return (
             <div key={p.ec5_uuid} className={`photo-tile${isOpen ? " photo-tile-open" : ""}`} onClick={() => handleSelect(p)}>
               {!hidden.has(src) && (
