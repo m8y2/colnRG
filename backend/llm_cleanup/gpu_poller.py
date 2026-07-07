@@ -159,12 +159,54 @@ def run_on_droplet(ip, command):
     return result.returncode
 
 
-def destroy_droplet(droplet_id):
+def destroy_droplet(droplet_id, retries=3, backoff=10, fatal=True):
+    assert isinstance(droplet_id, int) and droplet_id > 0, f"Bad droplet_id: {droplet_id!r}"
     print(f"Destroying droplet {droplet_id}...")
+    last_error = None
+    for attempt in range(retries):
+        try:
+            call_do("DELETE", f"/droplets/{droplet_id}")
+            print(f"  Droplet {droplet_id} destroyed.")
+            return
+        except Exception as e:
+            last_error = e
+            if attempt < retries - 1:
+                print(f"  Destroy attempt {attempt + 1} failed ({e}), retrying in {backoff}s...")
+                time.sleep(backoff)
+    print(f"  FAILED to destroy droplet {droplet_id} after {retries} attempts: {last_error}")
+    if fatal:
+        sys.exit(1)
+
+
+def list_tagged_droplets(tag="llm-cleanup"):
     try:
-        call_do("DELETE", f"/droplets/{droplet_id}")
+        result = call_do("GET", f"/droplets?tag_name={tag}")
+        return result.get("droplets", [])
     except Exception as e:
-        print(f"  (destroy may have already completed: {e})")
+        print(f"  (could not list droplets: {e})", file=sys.stderr)
+        return []
+
+
+def cleanup_orphans(max_age_minutes=5):
+    """Destroy any lingering tagged droplets older than max_age_minutes.
+    Called at startup before creating any new droplets."""
+    now = time.time()
+    droplets = list_tagged_droplets()
+    if not droplets:
+        return
+    for d in droplets:
+        created = d.get("created_at", "")
+        if created:
+            try:
+                created_ts = datetime.fromisoformat(created.replace("Z", "+00:00")).timestamp()
+            except Exception:
+                continue
+            age_minutes = (now - created_ts) / 60
+            if age_minutes > max_age_minutes:
+                print(f"  Orphan found: droplet {d['id']} ({age_minutes:.0f}m old), destroying...")
+                destroy_droplet(d["id"], fatal=False)
+            else:
+                print(f"  Droplet {d['id']} is {age_minutes:.0f}m old (within limit, keeping).")
 
 
 def fetch_new_entries():
@@ -241,10 +283,6 @@ def run_llm_on_entries(entries, label):
     ip = None
     try:
         droplet_id, ip = spin_up_droplet()
-    except Exception:
-        if droplet_id:
-            destroy_droplet(droplet_id)
-        raise
 
     try:
         if not wait_for_ssh(ip):
@@ -291,6 +329,8 @@ def main():
     if not DO_API_TOKEN:
         print("DO_API_TOKEN not set", file=sys.stderr)
         sys.exit(1)
+
+    cleanup_orphans()
 
     if args.all:
         print(f"[{datetime.now(timezone.utc).isoformat()}] Processing existing entries...")

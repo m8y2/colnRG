@@ -1,0 +1,9 @@
+[Unit]
+Description=Destroy orphaned LLM cleanup droplets (>5 min old)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/coln-dashboard/backend
+Environment=PATH=/opt/coln-dashboard/backend/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=DO_API_TOKEN=<SET_ME>
+ExecStart=/opt/coln-dashboard/backend/venv/bin/python /opt/coln-dashboard/backend/llm_cleanup/cleanup_orphans.py
