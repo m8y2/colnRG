@@ -164,8 +164,8 @@ export default function AllData() {
       <div className="page-header">
         <h1>All the data</h1>
         <p className="lede">
-          Every reading, as it was submitted. If you would rather work with this
-          in a spreadsheet, download it.
+          Every reading, as it was submitted, alongside how it was
+          interpreted.
         </p>
       </div>
 

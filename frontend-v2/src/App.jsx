@@ -59,7 +59,6 @@ export default function App() {
         <div className="container site-header__bar">
           <a className="site-header__brand" href="#/river-now">
             <span className="site-header__title">Coln River Guardians</span>
-            <span className="site-header__subtitle">River health, explained in plain English</span>
           </a>
           <ThemeToggle />
         </div>

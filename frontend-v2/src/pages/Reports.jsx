@@ -226,9 +226,9 @@ export default function Reports() {
       <div className="page-header">
         <h1>Reports</h1>
         <p className="lede">
-          A written summary of what the readings show, put together for you.
-          Every figure in it is taken from the database and checked afterwards,
-          so a report cannot quote a number the data does not contain.
+          Every figure in a report is taken from the readings and checked
+          against them afterwards, so a report cannot quote a number the data
+          does not contain.
         </p>
       </div>
 

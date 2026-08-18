@@ -101,8 +101,7 @@ export default function RiverNow({ navigate }) {
             <section>
               <h2>Where the readings come from</h2>
               <p className="text-secondary">
-                Each pin is a what3words location a volunteer has sampled, coloured by its worst current reading. Pick a
-                pin or a place in the list to see its full story.
+                Each pin is a what3words location a volunteer has sampled, coloured by its worst current reading.
               </p>
               <div className="map-layout">
                 <LocationMap locations={mapLocations} onSelectLocation={goToLocation} />
