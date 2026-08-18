@@ -146,8 +146,8 @@ export default function YourPlace({ routeParam, navigate }) {
       <div className="page-header">
         <h1>Your place</h1>
         <p className="lead">
-          Pick a location on the map or in the list below to see its readings. Each one is a what3words address — a
-          real, checkable 3-metre square on the riverbank, not a made-up place name.
+          Each location is a what3words address — a 3-metre square recorded by
+          volunteers once a month.
         </p>
       </div>
 

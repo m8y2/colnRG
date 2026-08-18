@@ -200,11 +200,7 @@ def list_locations():
     out.sort(key=lambda loc: (loc["river_order"] is None, loc["river_order"] or 0))
     return {
         "locations": out,
-        "precision_note": (
-            "What3words addresses are 3m squares recorded by volunteers, and reference "
-            "coordinates were supplied by the group. Positions are accurate to roughly the "
-            "riverbank they were taken from, not survey-grade."
-        ),
+        "precision_note": "Locations are what3words addresses — 3-metre squares recorded by volunteers once a month.",
     }
 
 
@@ -255,10 +251,7 @@ def get_location(w3w: str):
         "summary": summary,
         "trends": trends,
         "photos": _location_photos(w3w),
-        "precision_note": (
-            "This position is accurate to roughly the riverbank it was taken from, not "
-            "survey-grade."
-        ),
+        "precision_note": "Locations are what3words addresses — 3-metre squares recorded by volunteers once a month.",
     }
 
 

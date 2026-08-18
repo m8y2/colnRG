@@ -121,8 +121,7 @@ export default function LocationMap({ locations, onSelectLocation, selected }) {
         aria-label="Map of River Coln sampling locations, coloured by their most recent water quality band"
       />
       <p className="precision-note">
-        Locations are what3words addresses — 3-metre squares recorded by volunteers standing on the riverbank. They mark
-        roughly the right spot, not survey-grade positions.
+        Locations are what3words addresses — 3-metre squares recorded by volunteers once a month.
       </p>
     </div>
   );
