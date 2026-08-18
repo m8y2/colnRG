@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Decide which reports should exist, and write the ones that don't.
+"""Write the round report for any round of testing that has finished.
 
 This is what makes reporting automatic rather than a button. v1 only ever
 generated a report when somebody clicked; a round could finish and nobody
 would notice for weeks.
+
+One round of testing produces one report, covering the state of the whole
+river during that round: every location sampled, how each measure sat
+against its bands, how it compares with the previous round, and whether
+things change going downstream.
 
 Run it daily from a timer:
 
@@ -37,10 +42,6 @@ logger = logging.getLogger(__name__)
 # long. Volunteers submit over several days, so reporting immediately
 # would describe a half-collected round.
 ROUND_SETTLE_DAYS = 5
-
-# How many new samples a location needs before its report is stale enough
-# to be worth the cost of rewriting.
-LOCATION_REFRESH_SAMPLES = 3
 
 DEFAULT_AUDIENCE = "volunteer"
 
@@ -80,52 +81,17 @@ def due_round_reports() -> list[dict]:
     return due
 
 
-def due_catchment_reports() -> list[dict]:
-    """A digest for last month, once last month is over."""
-    today = _today()
-    first_of_month = today.replace(day=1)
-    last_month_end = first_of_month - timedelta(days=1)
-    key = last_month_end.strftime("%Y-%m")
-    if _existing("catchment", key) is not None:
-        return []
-    return [{
-        "type": "catchment", "key": key,
-        "period_start": last_month_end.replace(day=1).isoformat(),
-        "period_end": last_month_end.isoformat(),
-        "why": f"no monthly digest for {key}",
-    }]
-
-
-def due_location_reports() -> list[dict]:
-    """A location whose report has fallen behind its readings."""
-    due = []
-    conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT w3w, COUNT(*) AS n, MAX(sample_date) AS latest FROM observations "
-            "WHERE excluded = 0 AND w3w IS NOT NULL GROUP BY w3w"
-        ).fetchall()
-        for row in rows:
-            existing = _existing("location", row["w3w"])
-            if existing is None:
-                due.append({"type": "location", "key": row["w3w"],
-                            "why": "no report for this location yet"})
-                continue
-            newer = conn.execute(
-                "SELECT COUNT(*) FROM observations WHERE w3w = ? AND excluded = 0 "
-                "AND sample_date > date(?)",
-                (row["w3w"], existing["generated_at"][:10]),
-            ).fetchone()[0]
-            if newer >= LOCATION_REFRESH_SAMPLES:
-                due.append({"type": "location", "key": row["w3w"],
-                            "why": f"{newer} new samples since the last report"})
-    finally:
-        conn.close()
-    return due
-
-
 def collect_due() -> list[dict]:
-    return due_round_reports() + due_catchment_reports() + due_location_reports()
+    """One report per round of testing, covering the whole river.
+
+    Deliberately the only automatic rule. Earlier versions also wrote a
+    monthly digest and refreshed a report per location, which produced 63
+    reports off one dataset -- most of them nobody asked for, each costing
+    an API call. Sampling happens in rounds, so a round is the natural
+    unit: one report per round, summarising every location sampled in it.
+    Location, trend and comparison reports remain available on demand.
+    """
+    return due_round_reports()
 
 
 def run_due_jobs(dry_run: bool = False, limit: int | None = None) -> dict:

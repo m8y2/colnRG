@@ -65,6 +65,7 @@ from v2.db import get_connection
 from v2.insights import (
     catchment_summary,
     data_quality,
+    downstream_profile,
     location_neighbours,
     location_row,
     location_summary,
@@ -356,11 +357,30 @@ def _facts_round(key: str, audience: str) -> dict:
         if s and s["n_usable"]:
             ordinal_summaries[p] = s
 
+    # Source-to-Thames ordering for the banded parameters. Without it the
+    # facts pack is a bag of places and the model cannot say whether the
+    # river gets worse downstream -- which is the question a round report
+    # about "the whole river" exists to answer.
+    downstream = {}
+    for p in ("phosphate", "ammonia", "nitrate"):
+        try:
+            profile = downstream_profile(p, round=n)
+        except (ValueError, KeyError):
+            continue
+        if not profile:
+            continue
+        # Keep only locations actually sampled in this round -- an empty
+        # slot is not evidence of anything and just costs pack budget.
+        sampled = [loc for loc in profile.get("locations", []) if loc.get("n")]
+        if sampled:
+            downstream[p] = {**profile, "locations": sampled}
+
     return {
         "report": _report_meta("round", str(n), audience, period_start=info["start"], period_end=info["end"]),
         "round": info,
         "previous_round": prev_info,
         "catchment": summary,
+        "downstream_profile": downstream,
         "round_comparison": comparison,
         "ordinal_summaries": ordinal_summaries,
         "parameters_meta": _parameters_meta(),
