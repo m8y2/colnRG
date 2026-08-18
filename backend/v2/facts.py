@@ -228,7 +228,39 @@ def _landowner_names(w3w: str | None = None, date_from: str | None = None, date_
         rows = conn.execute(f"SELECT DISTINCT landowner_raw FROM observations WHERE {where}", params).fetchall()
     finally:
         conn.close()
-    return sorted({r["landowner_raw"].strip() for r in rows if r["landowner_raw"] and r["landowner_raw"].strip()})
+    raw = {r["landowner_raw"].strip() for r in rows if r["landowner_raw"] and r["landowner_raw"].strip()}
+    return sorted(n for n in raw if _is_personal_name(n))
+
+
+# Values volunteers typed into the landowner box that are not anybody's
+# name. Banning these would make the verifier fire on ordinary prose --
+# "public" alone flagged every report written for the public audience.
+_GENERIC_LANDOWNER_WORDS = {
+    "public", "private", "mixed", "various", "unknown", "none", "nil", "n/a",
+    "n/k", "na", "nk", "not known", "yes", "no", "council", "farm", "farmer",
+    "landowner", "village", "church", "school", "bridge", "road", "footpath",
+    "public access", "public bridal path", "public bridleway",
+}
+
+
+def _is_personal_name(value: str) -> bool:
+    """Is this landowner value specific enough to be worth protecting?
+
+    The rule this serves is that a report must never name or imply blame
+    for a landowner. That protects real people and estates -- it should
+    not ban the word "public". Anything generic, or too short to identify
+    somebody, is not a name.
+    """
+    cleaned = value.strip().strip(".,;:").lower()
+    if len(cleaned) < 4 or cleaned in _GENERIC_LANDOWNER_WORDS:
+        return False
+    # A bare lowercase word is a description, not how anyone writes a name.
+    words = value.strip().split()
+    if len(words) == 1 and value.strip().islower():
+        return False
+    # "n/a Shipton Village" and friends: strip the filler, judge the rest.
+    meaningful = [w for w in words if w.strip(".,").lower() not in _GENERIC_LANDOWNER_WORDS]
+    return bool(meaningful)
 
 
 def _locations_missing_reference() -> list[dict]:
@@ -289,7 +321,7 @@ def _facts_location(w3w: str, audience: str) -> dict:
         "parameters_meta": _parameters_meta(),
         "wfd_reference": _WFD_REFERENCE,
         "words_only_parameters": _words_only_parameters(w3w=w3w),
-        "banned_terms": _landowner_names(w3w=w3w),
+        "banned_terms": _landowner_names(),
     }
 
 
@@ -334,7 +366,7 @@ def _facts_round(key: str, audience: str) -> dict:
         "parameters_meta": _parameters_meta(),
         "wfd_reference": _WFD_REFERENCE,
         "words_only_parameters": _words_only_parameters(date_from=info["start"], date_to=info["end"]),
-        "banned_terms": _landowner_names(date_from=info["start"], date_to=info["end"]),
+        "banned_terms": _landowner_names(),
     }
 
 
@@ -365,7 +397,7 @@ def _facts_catchment(key: str, audience: str, period_start: str | None, period_e
         "parameters_meta": _parameters_meta(),
         "wfd_reference": _WFD_REFERENCE,
         "words_only_parameters": _words_only_parameters(date_from=period_start, date_to=period_end),
-        "banned_terms": _landowner_names(date_from=period_start, date_to=period_end),
+        "banned_terms": _landowner_names(),
     }
 
 
@@ -397,9 +429,7 @@ def _facts_comparison(key: str, audience: str) -> dict:
         "parameters_meta": _parameters_meta(),
         "wfd_reference": _WFD_REFERENCE,
         "words_only_parameters": words_only,
-        "banned_terms": _landowner_names(
-            date_from=cmp_result["round_a"]["start"], date_to=cmp_result["round_b"]["end"]
-        ),
+        "banned_terms": _landowner_names(),
     }
 
 
