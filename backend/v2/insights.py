@@ -24,6 +24,19 @@ Per V2_SPEC_ADDENDUM.md, this module does two things v1 never did:
   re-derive `usable`/`qualifier`; it reports `n_usable` / `n_excluded`
   and surfaces what a reading's qualifier means for the arithmetic (a
   `below_detection` reading means a mean is an upper-bound estimate).
+
+Per V2_SPEC_ADDENDUM_2.md, `usable=1` no longer implies a numeric value:
+turbidity and water depth are mostly recorded as a word ("Clear", "Low"),
+stored as an **ordinal category** with `value` NULL — genuinely usable
+data, just not a number. `readings()` (the numeric path, used for every
+mean/median/trend/band classification in this file) explicitly requires
+`value IS NOT NULL` in its SQL, on top of `usable=1`, so an ordinal row
+can never silently enter an arithmetic result. `ordinal_readings()` /
+`ordinal_summary()` are the separate, parallel path for those — see Rule
+B: "never merge the two." Band-range readings (`qualifier='band_range'`,
+a test-strip colour between two pads) DO have a numeric `value` (the
+midpoint, or the volunteer's own figure inside the range) and flow
+through the normal numeric path with a caveat attached.
 """
 
 from __future__ import annotations
@@ -34,6 +47,7 @@ from datetime import datetime
 
 from v2.db import get_connection
 from v2.wfd import (
+    ORDINAL_SCALES,
     PARAMETER_ORDER,
     PARAMETERS,
     band_width,
@@ -72,20 +86,23 @@ def readings(
     date_to: str | None = None,
     recorder: str | None = None,
 ) -> list[dict]:
-    """Usable measurements joined with their observation context, in
-    ascending date/time order.
+    """Usable, NUMERIC measurements joined with their observation context,
+    in ascending date/time order. This is the path every mean, median,
+    trend and band classification in this file is built on.
 
     Always excludes `excluded=1` observations (test/junk entries) and
-    `usable=0` measurements — this is the one function nearly everything
-    else in this module is built on, so every statistic automatically
-    only ever sees data `v2/cleaning.py` judged safe to use. Rows where
-    `parameter` is left unset span every parameter (one row per
-    measurement, tagged with its own `parameter` key), which is why
-    almost every caller below still loops `for p in PARAMETER_ORDER`.
+    `usable=0` measurements. Since Addendum 2, `usable=1` no longer
+    implies a numeric value — an ordinal reading ("Clear", "Low") is
+    `usable=1` with `value` NULL — so this query filters `value IS NOT
+    NULL` explicitly, in SQL, rather than relying on `usable=1` alone or
+    on a post-hoc Python check. See `ordinal_readings()` for the parallel,
+    never-merged path for category readings. Rows where `parameter` is
+    left unset span every (numeric) parameter, one row per measurement,
+    which is why almost every caller below loops `for p in PARAMETER_ORDER`.
     """
     conn = get_connection()
     try:
-        conditions = ["o.excluded = 0", "m.usable = 1", "o.sample_date IS NOT NULL"]
+        conditions = ["o.excluded = 0", "m.usable = 1", "m.value IS NOT NULL", "o.sample_date IS NOT NULL"]
         params: list = []
         if parameter:
             conditions.append("m.parameter = ?")
@@ -106,7 +123,7 @@ def readings(
         rows = conn.execute(
             f"""
             SELECT o.ec5_uuid, o.sample_date, o.sample_time, o.w3w, o.recorder, o.location_status,
-                   m.parameter, m.value, m.value_raw, m.qualifier, m.flags
+                   m.parameter, m.value, m.value_low, m.value_high, m.value_raw, m.qualifier, m.flags
             FROM measurements m JOIN observations o ON o.ec5_uuid = m.ec5_uuid
             WHERE {where}
             ORDER BY o.sample_date ASC, o.sample_time ASC
@@ -118,6 +135,8 @@ def readings(
 
     out = []
     for r in rows:
+        # Belt-and-suspenders: the SQL already requires this, but a NULL
+        # value must never reach a mean, so check again in Python too.
         if r["value"] is None:
             continue
         out.append({
@@ -129,11 +148,126 @@ def readings(
             "time": r["sample_time"],
             "parameter": r["parameter"],
             "value": r["value"],
+            "value_low": r["value_low"],
+            "value_high": r["value_high"],
             "value_raw": r["value_raw"],
             "qualifier": r["qualifier"],
             "flags": json.loads(r["flags"]) if r["flags"] else [],
         })
     return out
+
+
+def ordinal_readings(
+    w3w: str | None = None,
+    parameter: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    recorder: str | None = None,
+) -> list[dict]:
+    """Usable ORDINAL (category-scale) readings — e.g. turbidity recorded
+    as "Clear" rather than a number in NTU — in ascending date/time order.
+
+    This is the deliberate parallel to `readings()`: it only ever returns
+    `qualifier='ordinal'` rows with a non-NULL `category`, and never a
+    numeric `value` (which is always NULL for these rows by construction).
+    It also never returns `category='flow_note'` rows (e.g. "In spate"
+    describes river flow, not water clarity) — those are stored with
+    `usable=0` specifically so they cannot appear in any summary; the
+    `m.usable = 1` filter below already excludes them.
+    """
+    conn = get_connection()
+    try:
+        conditions = [
+            "o.excluded = 0", "m.usable = 1", "m.qualifier = 'ordinal'",
+            "m.category IS NOT NULL", "o.sample_date IS NOT NULL",
+        ]
+        params: list = []
+        if parameter:
+            conditions.append("m.parameter = ?")
+            params.append(parameter)
+        if w3w:
+            conditions.append("o.w3w = ?")
+            params.append(w3w)
+        if recorder:
+            conditions.append("o.recorder = ?")
+            params.append(recorder)
+        if date_from:
+            conditions.append("o.sample_date >= ?")
+            params.append(date_from)
+        if date_to:
+            conditions.append("o.sample_date <= ?")
+            params.append(date_to)
+        where = " AND ".join(conditions)
+        rows = conn.execute(
+            f"""
+            SELECT o.ec5_uuid, o.sample_date, o.sample_time, o.w3w, o.recorder,
+                   m.parameter, m.category, m.category_rank, m.value_raw
+            FROM measurements m JOIN observations o ON o.ec5_uuid = m.ec5_uuid
+            WHERE {where}
+            ORDER BY o.sample_date ASC, o.sample_time ASC
+            """,
+            params,
+        ).fetchall()
+    finally:
+        conn.close()
+
+    return [
+        {
+            "ec5_uuid": r["ec5_uuid"],
+            "w3w": r["w3w"],
+            "recorder": r["recorder"],
+            "date": r["sample_date"],
+            "time": r["sample_time"],
+            "parameter": r["parameter"],
+            "category": r["category"],
+            "category_rank": r["category_rank"],
+            "value_raw": r["value_raw"],
+        }
+        for r in rows
+    ]
+
+
+def ordinal_summary(parameter: str, w3w: str | None = None) -> dict | None:
+    """Category counts, modal category, and distribution for an
+    ordinal-scale parameter (turbidity, water depth) — the numeric-free
+    summary Rule B requires. Returns None when `parameter` has no defined
+    `ORDINAL_SCALES` entry (there is nothing to summarise; this is not the
+    same as an empty distribution, which means the scale exists but no
+    reading has landed in it yet)."""
+    scale = ORDINAL_SCALES.get(parameter)
+    if not scale:
+        return None
+
+    rows = ordinal_readings(w3w=w3w, parameter=parameter)
+    scope = w3w or "catchment"
+    counts: dict[str, int] = {}
+    for r in rows:
+        counts[r["category"]] = counts.get(r["category"], 0) + 1
+    total = len(rows)
+
+    distribution = [
+        {
+            "category": step["category"],
+            "label": step["label"],
+            "rank": step["rank"],
+            "count": counts.get(step["category"], 0),
+            "pct": round(100 * counts.get(step["category"], 0) / total, 1) if total else 0.0,
+        }
+        for step in scale
+    ]
+    modal = max(distribution, key=lambda d: d["count"]) if total else None
+    dates = [r["date"] for r in rows]
+
+    return {
+        "id": f"ordinal|{scope}|{parameter}",
+        "n_usable": total,
+        "modal_category": modal["category"] if modal and modal["count"] else None,
+        "modal_label": modal["label"] if modal and modal["count"] else None,
+        "modal_rank": modal["rank"] if modal and modal["count"] else None,
+        "distribution": distribution,
+        "first_date": min(dates) if dates else None,
+        "last_date": max(dates) if dates else None,
+    }
 
 
 def _usage_counts(
@@ -207,7 +341,34 @@ def _build_caveats(qualifiers: dict) -> list[str]:
         caveats.append(
             f"{n} reading(s) were recorded as a range and the midpoint was used as an estimate."
         )
+    n = qualifiers.get("band_range", 0)
+    if n:
+        caveats.append(
+            f"{n} reading(s) came from a test-strip colour band rather than a precise reading — "
+            f"the figure shown is an estimate within that band, not an exact measurement."
+        )
     return caveats
+
+
+def usable_counts_by_parameter() -> dict[str, int]:
+    """Total usable measurement count per parameter — numeric AND ordinal
+    combined — on non-excluded observations. This is the basis for
+    Rule G's `not_currently_measured` flag (see `wfd.all_parameters`):
+    turbidity has only ~10 numeric NTU readings but ~388 ordinal ones, so
+    counting numeric readings alone would wrongly suggest turbidity is
+    barely measured, when in fact it is measured constantly, just mostly
+    in words."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT m.parameter, COUNT(*) as c FROM measurements m "
+            "JOIN observations o ON o.ec5_uuid = m.ec5_uuid "
+            "WHERE o.excluded = 0 AND m.usable = 1 "
+            "GROUP BY m.parameter"
+        ).fetchall()
+    finally:
+        conn.close()
+    return {r["parameter"]: r["c"] for r in rows}
 
 
 def detect_rounds() -> list[dict]:
@@ -295,7 +456,15 @@ def ordered_locations() -> list[dict]:
 def location_neighbours(w3w: str) -> dict:
     """Where `w3w` sits in the upstream->downstream order: its rank, the
     total number of ordered locations, and its immediate neighbours.
-    Locations with no `river_order` have no rank and no neighbours."""
+    Locations with no `river_order` have no rank and no neighbours.
+
+    `river_order` itself is a REAL, not an integer: some locations were
+    placed by projecting onto the reference polyline and take fractional
+    values between existing points (e.g. 15.98). `rank` here is the
+    location's 1-indexed *position* in the sorted sequence, not the raw
+    `river_order` value — this is deliberate, and is what any "point N of
+    M from the source" phrasing should use, so it never renders something
+    like "point 38.92"."""
     ordered = [loc for loc in ordered_locations() if loc["river_order"] is not None]
     idx = next((i for i, loc in enumerate(ordered) if loc["w3w"] == w3w), None)
     neighbours = {"upstream": None, "downstream": None}
@@ -307,6 +476,73 @@ def location_neighbours(w3w: str) -> dict:
         if idx < len(ordered) - 1:
             neighbours["downstream"] = ordered[idx + 1]["w3w"]
     return {"rank": rank, "n_locations": len(ordered), "neighbours": neighbours}
+
+
+def location_provenance() -> dict:
+    """Where each location's coordinates came from: the owner's reference
+    table (`reference_table`), coordinates derived separately rather than
+    supplied by the owner (`supplement`), or none at all (`unlocated`).
+    Surfaced on the data-quality page so a reader can tell which positions
+    are authoritative and which are a best-effort addition."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT w3w, river_order, latitude, longitude, source FROM locations "
+            "ORDER BY source, (river_order IS NULL), river_order"
+        ).fetchall()
+    finally:
+        conn.close()
+    by_source: dict[str, list[dict]] = {}
+    for r in rows:
+        by_source.setdefault(r["source"], []).append({
+            "w3w": r["w3w"], "river_order": r["river_order"],
+            "latitude": r["latitude"], "longitude": r["longitude"],
+        })
+    return {
+        "counts": {src: len(v) for src, v in by_source.items()},
+        "reference_table": by_source.get("reference_table", []),
+        "supplement": by_source.get("supplement", []),
+        "unlocated": by_source.get("unlocated", []),
+    }
+
+
+def missing_coordinates() -> list[dict]:
+    """What3words addresses seen in the data with no known coordinates —
+    Rule F (Addendum 2): a real, distinct grouping key with its own
+    statistics is not a loss just because it has no position yet; it is
+    an action the owner can take (add it to the reference table).
+
+    Expected to be empty once every sampling point has coordinates —
+    combines two sources defensively (any `locations` row lacking
+    lat/lon, and any `w3w` that appears in `observations` with no
+    `locations` row at all), since either shape is compatible with the
+    fixed schema."""
+    conn = get_connection()
+    try:
+        loc_rows = conn.execute(
+            "SELECT w3w FROM locations WHERE latitude IS NULL OR longitude IS NULL"
+        ).fetchall()
+        obs_w3w_rows = conn.execute(
+            "SELECT DISTINCT o.w3w FROM observations o "
+            "LEFT JOIN locations l ON l.w3w = o.w3w "
+            "WHERE o.w3w IS NOT NULL AND o.excluded = 0 "
+            "AND (l.w3w IS NULL OR l.latitude IS NULL OR l.longitude IS NULL)"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    all_missing = {r["w3w"] for r in loc_rows} | {r["w3w"] for r in obs_w3w_rows}
+    out = []
+    for w3w in sorted(all_missing):
+        rows = readings(w3w=w3w) + ordinal_readings(w3w=w3w)
+        dates = [r["date"] for r in rows]
+        out.append({
+            "w3w": w3w,
+            "n_readings": len(rows),
+            "first_date": min(dates) if dates else None,
+            "last_date": max(dates) if dates else None,
+        })
+    return out
 
 
 def submitted_w3w_text(ec5_uuid: str) -> str | None:
@@ -339,54 +575,88 @@ def _band_percentages(parameter: str, values: list[float]) -> dict:
     return {b: round(100 * c / len(values), 1) for b, c in counts.items()}
 
 
+def _numeric_entry(scope_id: str, dp: int, parameter: str, rows: list[dict], u: dict) -> dict:
+    """The numeric half of a parameter summary — mean/median/min/max/
+    latest/band, built only from rows `readings()` already guaranteed
+    have a non-NULL `value`. `n_usable` here is the numeric-usable count
+    (`len(rows)`), deliberately NOT the same as `u['usable']`, which for
+    an ordinal-scale parameter also counts category readings that will
+    never appear here — see `_ordinal_entry` for those."""
+    entry: dict = {
+        "n_usable": len(rows),
+        "caveats": _build_caveats(u["qualifiers"]),
+    }
+    if not rows:
+        entry.update({
+            "mean": None, "median": None, "min": None, "max": None,
+            "latest": None, "band_of_mean": None, "band_percentages": None,
+        })
+        return entry
+
+    values = [r["value"] for r in rows]
+    mean_v = statistics.mean(values)
+    latest = rows[-1]
+    entry.update({
+        "mean": {"id": f"{scope_id}|mean", "value": round(mean_v, dp)},
+        "median": {"id": f"{scope_id}|median", "value": round(statistics.median(values), dp)},
+        "min": {"id": f"{scope_id}|min", "value": round(min(values), dp)},
+        "max": {"id": f"{scope_id}|max", "value": round(max(values), dp)},
+        "latest": {
+            "id": f"{scope_id}|latest",
+            "value": round(latest["value"], dp),
+            "value_low": latest["value_low"],
+            "value_high": latest["value_high"],
+            "date": latest["date"],
+            "band": classify_band(parameter, latest["value"]),
+            "qualifier": latest["qualifier"],
+        },
+        "band_of_mean": {"id": f"{scope_id}|band_of_mean", "value": classify_band(parameter, mean_v)},
+        "band_percentages": {"id": f"{scope_id}|band_percentages", "value": _band_percentages(parameter, values)},
+    })
+    return entry
+
+
 def location_summary(w3w: str) -> dict:
-    """Per-parameter statistics for one location: n_usable, n_excluded,
-    mean, median, min, max, latest value + date, band of latest, band of
-    mean, % of readings in each band, caveats, plus the location's
-    first/last sampled dates overall."""
+    """Per-parameter statistics for one location. Every parameter carries
+    a `numeric` summary (mean/median/min/max/latest/band/caveats — built
+    only from readings with an actual number) and, for turbidity and
+    water depth, a separate `ordinal` summary (category distribution and
+    modal category). Rule B: report both, never merge them — a location
+    where every turbidity reading was a word has `numeric.n_usable == 0`
+    and a fully populated `ordinal` block, not a blank chart.
+
+    `n_excluded` counts measurements `v2/cleaning.py` marked `usable=0`
+    for that parameter at this location (implausible values, unparseable
+    text, absent readings) — regardless of whether the parameter is
+    numeric or ordinal. Plus the location's first/last sampled dates
+    overall (across numeric and ordinal readings alike).
+    """
     usage = _usage_counts(w3w=w3w)
     parameters: dict[str, dict] = {}
     first_dates: list[str] = []
     last_dates: list[str] = []
 
     for p in PARAMETER_ORDER:
+        scope_id = f"location|{w3w}|{p}"
         rows = readings(w3w=w3w, parameter=p)
-        values = [r["value"] for r in rows]
-        dp = round_dp(p)
         u = usage.get(p, {"usable": 0, "excluded": 0, "qualifiers": {}})
-        entry: dict = {
-            "id": f"location|{w3w}|{p}",
-            "n_usable": u["usable"],
-            "n_excluded": u["excluded"],
-            "caveats": _build_caveats(u["qualifiers"]),
-        }
 
-        if values:
-            mean_v = statistics.mean(values)
-            latest = rows[-1]
-            entry.update({
-                "mean": {"id": f"location|{w3w}|{p}|mean", "value": round(mean_v, dp)},
-                "median": {"id": f"location|{w3w}|{p}|median", "value": round(statistics.median(values), dp)},
-                "min": {"id": f"location|{w3w}|{p}|min", "value": round(min(values), dp)},
-                "max": {"id": f"location|{w3w}|{p}|max", "value": round(max(values), dp)},
-                "latest": {
-                    "id": f"location|{w3w}|{p}|latest",
-                    "value": round(latest["value"], dp),
-                    "date": latest["date"],
-                    "band": classify_band(p, latest["value"]),
-                    "qualifier": latest["qualifier"],
-                },
-                "band_of_mean": {"id": f"location|{w3w}|{p}|band_of_mean", "value": classify_band(p, mean_v)},
-                "band_percentages": {"id": f"location|{w3w}|{p}|band_percentages", "value": _band_percentages(p, values)},
-            })
+        entry: dict = {
+            "id": scope_id,
+            "n_excluded": u["excluded"],
+            "numeric": _numeric_entry(scope_id, round_dp(p), p, rows, u),
+            "ordinal": ordinal_summary(p, w3w=w3w),
+        }
+        parameters[p] = entry
+
+        if rows:
             first_dates.append(rows[0]["date"])
             last_dates.append(rows[-1]["date"])
-        else:
-            entry.update({
-                "mean": None, "median": None, "min": None, "max": None,
-                "latest": None, "band_of_mean": None, "band_percentages": None,
-            })
-        parameters[p] = entry
+        if entry["ordinal"]:
+            if entry["ordinal"]["first_date"]:
+                first_dates.append(entry["ordinal"]["first_date"])
+            if entry["ordinal"]["last_date"]:
+                last_dates.append(entry["ordinal"]["last_date"])
 
     return {
         "id": f"location|{w3w}",
@@ -399,41 +669,26 @@ def location_summary(w3w: str) -> dict:
 
 
 def catchment_summary(date_from: str | None = None, date_to: str | None = None) -> dict:
-    """Same per-parameter shape as `location_summary`, aggregated across
-    every location (plus any `unlocated` readings, since a catchment-wide
-    figure is not location-based — see the addendum), plus a per-location
-    rollup of each location's latest value/band per parameter within the
-    same window."""
+    """Same per-parameter shape as `location_summary` (`numeric` +
+    `ordinal`, never merged — see Rule B), aggregated across every
+    location plus any reading whose observation has no `w3w` at all
+    (a catchment-wide figure is not location-based, so it is not excluded
+    the way it would be from a map or downstream profile — see Rule F),
+    plus a per-location rollup of each location's latest value/band per
+    parameter within the same window."""
     parameters: dict[str, dict] = {}
     for p in PARAMETER_ORDER:
+        scope_id = f"catchment|{p}"
         rows = readings(parameter=p, date_from=date_from, date_to=date_to)
-        values = [r["value"] for r in rows]
-        dp = round_dp(p)
         u = _usage_counts(parameter=p, date_from=date_from, date_to=date_to).get(
             p, {"usable": 0, "excluded": 0, "qualifiers": {}}
         )
-        entry: dict = {
-            "id": f"catchment|{p}",
-            "n_usable": u["usable"],
+        parameters[p] = {
+            "id": scope_id,
             "n_excluded": u["excluded"],
-            "caveats": _build_caveats(u["qualifiers"]),
+            "numeric": _numeric_entry(scope_id, round_dp(p), p, rows, u),
+            "ordinal": ordinal_summary(p),
         }
-        if values:
-            mean_v = statistics.mean(values)
-            entry.update({
-                "mean": {"id": f"catchment|{p}|mean", "value": round(mean_v, dp)},
-                "median": {"id": f"catchment|{p}|median", "value": round(statistics.median(values), dp)},
-                "min": {"id": f"catchment|{p}|min", "value": round(min(values), dp)},
-                "max": {"id": f"catchment|{p}|max", "value": round(max(values), dp)},
-                "band_of_mean": {"id": f"catchment|{p}|band_of_mean", "value": classify_band(p, mean_v)},
-                "band_percentages": {"id": f"catchment|{p}|band_percentages", "value": _band_percentages(p, values)},
-            })
-        else:
-            entry.update({
-                "mean": None, "median": None, "min": None, "max": None,
-                "band_of_mean": None, "band_percentages": None,
-            })
-        parameters[p] = entry
 
     all_rows = readings(date_from=date_from, date_to=date_to)
     n_unlocated_readings = sum(1 for r in all_rows if r["w3w"] is None)
@@ -664,13 +919,118 @@ def outliers(parameter: str) -> list[dict]:
     return out
 
 
+# ── Review queue (Addendum 2, Rule D) ────────────────────────────────
+# Nothing ambiguous is silently dropped or silently guessed — it goes
+# here for the owner. `resolve_review_item` is the only function in this
+# module that writes anything; per Rule D it only ever writes
+# `review_queue` and `manual_corrections`, and it NEVER touches
+# `measurements` — an accepted correction is picked up from
+# `manual_corrections` the next time `v2/cleaning.py` runs `--refresh`,
+# fully attributed and reversible, rather than being applied here.
+
+def review_queue(status: str | None = None, issue: str | None = None) -> list[dict]:
+    """List review-queue items, optionally filtered by `status`
+    (open|accepted|rejected) and/or `issue` type."""
+    conn = get_connection()
+    try:
+        conditions = []
+        params: list = []
+        if status:
+            conditions.append("status = ?")
+            params.append(status)
+        if issue:
+            conditions.append("issue = ?")
+            params.append(issue)
+        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        rows = conn.execute(
+            f"SELECT * FROM review_queue {where} ORDER BY status, id", params
+        ).fetchall()
+    finally:
+        conn.close()
+    return [dict(r) for r in rows]
+
+
+def review_queue_item(item_id: int) -> dict | None:
+    conn = get_connection()
+    try:
+        r = conn.execute("SELECT * FROM review_queue WHERE id = ?", (item_id,)).fetchone()
+    finally:
+        conn.close()
+    return dict(r) if r else None
+
+
+def resolve_review_item(
+    item_id: int,
+    status: str,
+    resolved_value: str | None = None,
+    note: str | None = None,
+    resolved_by: str | None = None,
+) -> dict:
+    """Resolve one `review_queue` item as `accepted` or `rejected`.
+
+    On `accepted`, writes (or replaces) a `manual_corrections` row for
+    that reading — `resolved_value` if given, otherwise the queue item's
+    own `suggestion` (accepting IS choosing the suggestion, unless the
+    caller explicitly overrides it). Raises `ValueError` if the item
+    doesn't exist, and `LookupError` if `status='accepted'` is requested
+    with nothing to apply (`resolved_value` and `suggestion` both empty)
+    — never applies a guess.
+
+    This never writes to `measurements`. The correction takes effect the
+    next time `v2/cleaning.py` runs `--refresh` (owned separately),
+    logging a `cleaning_log` row with `action='manual_correction'`.
+    """
+    if status not in ("accepted", "rejected"):
+        raise ValueError(f"invalid status: {status!r} (must be 'accepted' or 'rejected')")
+
+    item = review_queue_item(item_id)
+    if item is None:
+        raise ValueError(f"review_queue item not found: {item_id}")
+
+    now = datetime.utcnow().isoformat() + "Z"
+    conn = get_connection()
+    try:
+        if status == "accepted":
+            value_to_apply = resolved_value if resolved_value is not None else item["suggestion"]
+            if not value_to_apply:
+                raise LookupError(
+                    "cannot accept: no resolved_value was given and this item has no suggestion "
+                    "to fall back on"
+                )
+            conn.execute(
+                "INSERT INTO manual_corrections (ec5_uuid, parameter, value, note, created_at) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(ec5_uuid, parameter) DO UPDATE SET value=excluded.value, "
+                "note=excluded.note, created_at=excluded.created_at",
+                (item["ec5_uuid"], item["parameter"], value_to_apply, note, now),
+            )
+            conn.execute(
+                "UPDATE review_queue SET status=?, resolved_value=?, resolved_at=?, resolved_by=? WHERE id=?",
+                ("accepted", value_to_apply, now, resolved_by, item_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE review_queue SET status=?, resolved_value=?, resolved_at=?, resolved_by=? WHERE id=?",
+                ("rejected", resolved_value, now, resolved_by, item_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return review_queue_item(item_id)
+
+
 def data_quality() -> dict:
     """Coverage and honesty report: how many observations exist, how many
-    were excluded (test/junk) and why, how many could not be geolocated,
-    how the cleaning step classified every measurement (usable vs not,
-    and why), where location matching needed a fuzzy or documented
-    rename, per-location sampling gaps over 60 days, and suspiciously
-    repeated values.
+    were excluded (test/junk) and why, how many could not be geolocated
+    (expected to be zero — see `missing_coordinates`), where each
+    location's coordinates came from, how the cleaning step classified
+    every measurement (usable-numeric vs usable-ordinal vs excluded, and
+    why), where location matching needed a fuzzy or documented rename,
+    open review-queue items (including ambiguous_location duplicates
+    kept deliberately separate — an open question, not an error),
+    per-location sampling gaps over 60 days, and suspiciously repeated
+    values.
 
     Unlike the original insights.py, this does not re-derive plausibility
     itself — `v2/cleaning.py` already decided `usable`/`qualifier`/`flags`
@@ -704,17 +1064,31 @@ def data_quality() -> dict:
     finally:
         conn.close()
 
-    by_parameter: dict[str, dict] = {p: {"n_usable": 0, "n_excluded": 0, "qualifiers": {}} for p in PARAMETER_ORDER}
+    # Numeric and ordinal usable readings are counted separately — a
+    # parameter's "usable" total on its own no longer tells a reader
+    # whether they are looking at numbers or words (Rule B: never merge).
+    by_parameter: dict[str, dict] = {
+        p: {"n_usable_numeric": 0, "n_usable_ordinal": 0, "n_excluded": 0, "qualifiers": {}}
+        for p in PARAMETER_ORDER
+    }
     for r in measurement_rows:
         p = r["parameter"]
         if p not in by_parameter:
-            by_parameter[p] = {"n_usable": 0, "n_excluded": 0, "qualifiers": {}}
+            by_parameter[p] = {"n_usable_numeric": 0, "n_usable_ordinal": 0, "n_excluded": 0, "qualifiers": {}}
         if r["usable"]:
-            by_parameter[p]["n_usable"] += r["c"]
+            if r["qualifier"] == "ordinal":
+                by_parameter[p]["n_usable_ordinal"] += r["c"]
+            else:
+                by_parameter[p]["n_usable_numeric"] += r["c"]
         else:
             by_parameter[p]["n_excluded"] += r["c"]
         by_parameter[p]["qualifiers"][r["qualifier"]] = by_parameter[p]["qualifiers"].get(r["qualifier"], 0) + r["c"]
 
+    # Observations still flagged location_status='unlocated' — after the
+    # coordinate supplement work, this is expected to be empty (every
+    # sampling point now has coordinates via reference_table or
+    # supplement). A non-empty list here is a discrepancy worth
+    # investigating, not an expected steady-state category.
     unlocated = [
         {
             "ec5_uuid": r["ec5_uuid"],
@@ -724,6 +1098,12 @@ def data_quality() -> dict:
         }
         for r in unlocated_rows
     ]
+
+    open_review_items = review_queue(status="open")
+    review_queue_by_issue: dict[str, int] = {}
+    for item in open_review_items:
+        review_queue_by_issue[item["issue"]] = review_queue_by_issue.get(item["issue"], 0) + 1
+    ambiguous_locations = [item for item in open_review_items if item["issue"] == "ambiguous_location"]
 
     # Per-location gaps over 60 days and suspicious repeats (>=4 identical
     # usable values running, in date order), computed over located,

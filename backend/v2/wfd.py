@@ -21,6 +21,16 @@ a reading becomes "Bad". Rather than invent a threshold the spec does not
 give, `classify_band` treats those two parameters as having four reachable
 bands (High/Good/Moderate/Poor), with Poor absorbing everything beyond
 Moderate. This is called out again next to `classify_band` below.
+
+Per V2_SPEC_ADDENDUM_2.md (Rule B), turbidity and water depth are also
+recorded as an **ordinal scale** — most volunteers write a word ("Clear",
+"Low"), not a number. `ORDINAL_SCALES` below is the plain-English label
+and rank for each category. These readings never get a WFD band (the
+bands are NTU thresholds; a word is not a measurement in NTU) and never
+enter a mean — `insights.py` keeps them in a completely separate summary.
+Per Rule G, `all_parameters()` can also flag a parameter as
+`not_currently_measured` when actual reading counts (supplied by
+`insights.py`, which owns the database) fall below a threshold owned here.
 """
 
 from __future__ import annotations
@@ -95,6 +105,11 @@ PARAMETERS = {
             "Treated sewage, farm fertiliser and manure washed off fields, "
             "and some household cleaning products."
         ),
+        "unit_equivalence_note": (
+            "A few readings were written in parts per million (ppm) rather than milligrams "
+            "per litre (mg/L). In water this dilute the two are the same number, so they are "
+            "treated as equal."
+        ),
         "bands": {"High": 0.1, "Good": 0.2, "Moderate": 0.4, "Poor": 0.7},
         "band_meanings": {
             "High": "Phosphate is naturally low, so it is not feeding extra algae growth.",
@@ -119,6 +134,11 @@ PARAMETERS = {
             "Sewage effluent, and manure or slurry washed off farmland, "
             "especially after rain."
         ),
+        "unit_equivalence_note": (
+            "A few readings were written in parts per million (ppm) rather than milligrams "
+            "per litre (mg/L). In water this dilute the two are the same number, so they are "
+            "treated as equal."
+        ),
         "bands": {"High": 0.3, "Good": 0.6, "Moderate": 1.1, "Poor": 2.5},
         "band_meanings": {
             "High": "Ammonia is naturally low and not a concern for fish or insect life.",
@@ -142,6 +162,11 @@ PARAMETERS = {
         ),
         "where_from": (
             "Fertiliser and manure washed off farmland, and treated sewage."
+        ),
+        "unit_equivalence_note": (
+            "A few readings were written in parts per million (ppm) rather than milligrams "
+            "per litre (mg/L). In water this dilute the two are the same number, so they are "
+            "treated as equal."
         ),
         "bands": {"High": 5.6, "Good": 11.3, "Moderate": 16.9, "Poor": 22.6},
         "band_meanings": {
@@ -196,6 +221,12 @@ PARAMETERS = {
             "Soil erosion, road run-off, and livestock disturbing riverbanks, "
             "especially after rain."
         ),
+        "recorded_as_note": (
+            "Most volunteers judge this by eye rather than with a meter, so most readings are "
+            "a word like 'Clear' or 'Cloudy' rather than a number in NTU. Both are shown, kept "
+            "separate: words are never turned into a number, and numbers are never turned into "
+            "words."
+        ),
         # Poor ("≥20") is already open-ended in the source reference table,
         # so there is no further "Bad" band for this parameter — see the
         # module docstring.
@@ -242,10 +273,64 @@ PARAMETERS = {
             "might look different from one visit to the next."
         ),
         "where_from": "Rainfall, the season, and how far downstream the site is.",
+        "recorded_as_note": (
+            "Many readings are a word like 'Low' or 'Normal' rather than a number in "
+            "centimetres. Both are shown, kept separate."
+        ),
         "bands": None,
         "band_meanings": None,
     },
 }
+
+
+# ── Ordinal (word-scale) parameters ──────────────────────────────────────
+# Per V2_SPEC_ADDENDUM_2.md Rule B: turbidity and water depth are mostly
+# recorded as an observed word, not a meter reading. These scales are the
+# plain-English label and rank for each category `v2/cleaning.py` (owned
+# separately) classifies raw text into. `insights.py` reads this to order
+# and label a distribution — it does not reclassify any text itself.
+# Deliberately NOT in PARAMETERS' `bands`: an ordinal reading is never
+# WFD-classified, so it must never be mistaken for a numeric threshold.
+
+ORDINAL_SCALES = {
+    "turbidity": [
+        {"rank": 1, "category": "crystal_clear", "label": "Crystal clear"},
+        {"rank": 2, "category": "very_clear", "label": "Very clear"},
+        {"rank": 3, "category": "clear", "label": "Clear"},
+        {"rank": 4, "category": "fairly_clear", "label": "Fairly clear"},
+        {"rank": 5, "category": "slightly_cloudy", "label": "Slightly cloudy"},
+        {"rank": 6, "category": "cloudy", "label": "Cloudy"},
+        {"rank": 7, "category": "very_cloudy", "label": "Very cloudy"},
+        {"rank": 8, "category": "murky", "label": "Murky"},
+        {"rank": 9, "category": "muddy", "label": "Muddy"},
+    ],
+    "water_depth": [
+        {"rank": 1, "category": "dry", "label": "Dry"},
+        {"rank": 2, "category": "very_low", "label": "Very low"},
+        {"rank": 3, "category": "low", "label": "Low"},
+        {"rank": 4, "category": "normal", "label": "Normal"},
+        {"rank": 5, "category": "high", "label": "High"},
+    ],
+}
+
+
+def ordinal_label(parameter: str, category: str) -> str | None:
+    """Plain-English label for one ordinal category, e.g.
+    ('turbidity', 'very_cloudy') -> 'Very cloudy'."""
+    for step in ORDINAL_SCALES.get(parameter, []):
+        if step["category"] == category:
+            return step["label"]
+    return None
+
+
+# A parameter this far below its total usable-reading count is being
+# offered as a chart option backed by almost nothing (Rule G's worked
+# examples: dissolved oxygen at 4 readings, conductivity at 2, out of 489
+# entries). This counts usable readings of ANY kind — numeric or ordinal
+# — so turbidity (~10 numeric + ~388 ordinal = very much being measured,
+# just mostly in words) is correctly NOT flagged, while dissolved oxygen
+# and conductivity (numeric only, and barely any of it) are.
+NOT_CURRENTLY_MEASURED_THRESHOLD = 10
 
 
 def classify_band(parameter: str, value: float | None) -> str | None:
@@ -325,6 +410,26 @@ def band_width(parameter: str) -> float | None:
     return round(max(values) - min(values), 6)
 
 
-def all_parameters() -> list[dict]:
-    """Ordered list of full parameter metadata, for `GET /api/v2/parameters`."""
-    return [PARAMETERS[key] for key in PARAMETER_ORDER]
+def all_parameters(usable_counts: dict[str, int] | None = None) -> list[dict]:
+    """Ordered list of full parameter metadata, for `GET /api/v2/parameters`.
+
+    `usable_counts` (parameter -> total usable reading count, numeric +
+    ordinal combined — `insights.usable_counts_by_parameter()`) is
+    optional so this function still works with no database at all, but
+    every real caller should pass it: without it, `not_currently_measured`
+    can't be computed and comes back None rather than a real answer
+    (Rule G — this must be based on actual counts, not asserted).
+    """
+    out = []
+    for key in PARAMETER_ORDER:
+        meta = dict(PARAMETERS[key])  # shallow copy — do not mutate the shared dict
+        meta["ordinal_scale"] = ORDINAL_SCALES.get(key)
+        if usable_counts is not None:
+            n = usable_counts.get(key, 0)
+            meta["n_usable_readings"] = n
+            meta["not_currently_measured"] = n < NOT_CURRENTLY_MEASURED_THRESHOLD
+        else:
+            meta["n_usable_readings"] = None
+            meta["not_currently_measured"] = None
+        out.append(meta)
+    return out

@@ -1,0 +1,27 @@
+# Supplementary sampling points — NOT in LocationReferenceTable.xlsx
+#
+# Four what3words addresses appear in the EpiCollect data but are missing from the owner's
+# reference table, so their readings had no coordinates and could not be mapped.
+#
+# Coordinates: looked up 2026-08-18 from the public what3words coordinate service
+#   (https://mapapi.what3words.com/api/convert-to-coordinates?words=<address>).
+#   Every one resolved inside Gloucestershire and inside the Coln catchment bounding box,
+#   which is the sanity check that they are real riverside squares and not typos.
+#
+# river_order: NOT authoritative. Derived by projecting each point onto the polyline formed
+#   by the 48 reference points in MY_ID order, giving a fractional position between two
+#   known points. Fractional values sort correctly alongside the integer MY_IDs.
+#   "line_offset_m" is how far the point sits from that straight-line path — the reference
+#   polyline is a coarse approximation of a meandering river, so a few hundred metres is
+#   expected and is not an error.
+#
+# needs_owner_review: the first two sit within ~30 m of an existing reference point, which is
+#   the width of a riverbank. They may be the same sampling location recorded with a
+#   different what3words square. They are deliberately NOT merged — that judgement is the
+#   owner's, and it is raised as a review_queue item.
+#
+w3w,river_order,latitude,longitude,nearest_reference,distance_to_nearest_m,line_offset_m,needs_owner_review,note
+suitably.dustbin.glossed,38.92,51.767262,-1.853142,gobblers.printers.secure,6,6,yes,"6 m from reference point 39 — likely the same sampling location"
+yacht.pounding.found,15.98,51.859732,-1.964950,luring.tram.dolphins,33,29,yes,"33 m from reference point 16 — likely the same sampling location"
+stadium.packing.strongman,46.77,51.702040,-1.774596,hindered.handlebar.button,300,207,no,"distinct point between reference points 46 and 47"
+intro.skews.submerged,43.50,51.742575,-1.790165,divisible.branch.gullible,222,222,no,"distinct point just downstream of reference point 43"

@@ -4,13 +4,17 @@ v2 gets its own SQLite file — `backend/coln_v2.db` — separate from v1's
 `dashboard.db` (see V2_SPEC_ADDENDUM.md, Change 2: "v2 gets its own
 SQLite file. Do not write into dashboard.db"). It holds a raw layer
 (`raw_entries`), a derived layer (`locations`, `location_aliases`,
-`observations`, `measurements`, `cleaning_log`) populated by
-`v2/ingest.py` and `v2/cleaning.py` (owned separately), and v2's report
-storage (`v2_reports`, `v2_report_jobs`).
+`observations`, `measurements`, `cleaning_log`, `review_queue`,
+`manual_corrections` — the last two added by V2_SPEC_ADDENDUM_2.md)
+populated by `v2/ingest.py` and `v2/cleaning.py` (owned separately), and
+v2's report storage (`v2_reports`, `v2_report_jobs`).
 
-`init_v2_db()` only ever does `CREATE TABLE IF NOT EXISTS` — it is always
-safe to call, whether the database is empty, mid-ingest, or fully
-populated, and never touches v1's `dashboard.db`.
+`init_v2_db()` only ever does `CREATE TABLE IF NOT EXISTS`, plus a
+defensive `ALTER TABLE ... ADD COLUMN` for any column Addendum 2 added to
+`measurements` on a database that already existed under the Addendum-1
+shape — it is always safe to call, whether the database is empty,
+mid-ingest, or fully populated, and never touches v1's `dashboard.db` or
+drops/rewrites existing data.
 
 The path can be overridden with the `V2_DB_PATH` environment variable,
 which is how this module's own tests point at a scratch fixture database
@@ -39,12 +43,25 @@ def get_connection(db_path: str | None = None) -> sqlite3.Connection:
     return conn
 
 
+def _ensure_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:
+    """Add any of `columns` (name -> SQL type) that don't already exist on
+    `table`, via `ALTER TABLE ... ADD COLUMN`. Lets `init_v2_db()` stay
+    idempotent even against a database created under an earlier schema
+    version (e.g. before Addendum 2 added `measurements.category` etc.),
+    without ever touching a row of existing data."""
+    existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    for name, sql_type in columns.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}")
+
+
 def init_v2_db(db_path: str | None = None) -> None:
     """Idempotently create every v2 table. Safe to call on every startup.
 
     Table shapes for `raw_entries` / `locations` / `location_aliases` /
-    `observations` / `measurements` / `cleaning_log` are copied verbatim
-    from V2_SPEC_ADDENDUM.md — that schema is fixed and shared with
+    `observations` / `measurements` / `cleaning_log` / `review_queue` /
+    `manual_corrections` are copied verbatim from V2_SPEC_ADDENDUM.md and
+    V2_SPEC_ADDENDUM_2.md — that schema is fixed and shared with
     `v2/ingest.py`, `v2/cleaning.py` and `v2/locations.py` (owned
     separately), so it is not this function's place to change it.
     `v2_reports` / `v2_report_jobs` are carried over from the original
@@ -63,9 +80,17 @@ def init_v2_db(db_path: str | None = None) -> None:
 
             CREATE TABLE IF NOT EXISTS locations (               -- a place on the river
                 w3w TEXT PRIMARY KEY,                            -- canonical, lowercase, dot-separated
-                river_order INTEGER,                             -- MY_ID from LocationReferenceTable, 1 = furthest upstream
+                river_order REAL,                                -- MY_ID from LocationReferenceTable, 1 = furthest upstream;
+                                                                  -- REAL, not INTEGER — 4 supplement points were placed by
+                                                                  -- projecting onto the reference polyline and take
+                                                                  -- fractional values between existing MY_IDs (e.g. 15.98).
+                                                                  -- Never cast this to int for display; use rank position
+                                                                  -- in the ordered sequence for "point N" phrasing instead.
                 latitude REAL, longitude REAL,
-                source TEXT NOT NULL                             -- reference_table | unlocated
+                source TEXT NOT NULL                             -- reference_table | supplement | unlocated
+                                                                  -- supplement = coordinates not supplied by the owner;
+                                                                  -- looked up separately (e.g. public what3words lookup)
+                                                                  -- for a real address missing from the reference table.
             );
 
             CREATE TABLE IF NOT EXISTS location_aliases (        -- every spelling seen in the data
@@ -86,13 +111,21 @@ def init_v2_db(db_path: str | None = None) -> None:
                 excluded INTEGER NOT NULL DEFAULT 0, exclude_reason TEXT
             );
 
+            -- value_low/value_high (band_range readings) and
+            -- category/category_rank (ordinal readings) added by
+            -- V2_SPEC_ADDENDUM_2.md. usable=1 no longer implies value IS
+            -- NOT NULL: an ordinal row has value=NULL and category set.
             CREATE TABLE IF NOT EXISTS measurements (            -- one row per parameter per visit
                 ec5_uuid TEXT NOT NULL,
                 parameter TEXT NOT NULL,                         -- phosphate|ammonia|nitrate|turbidity|dissolved_oxygen|conductivity|water_depth
                 value_raw TEXT,                                  -- EXACTLY as submitted, always kept
-                value REAL,                                      -- NULL when not usable as a number
-                qualifier TEXT NOT NULL,                         -- exact|range_midpoint|below_detection|zero_reported|non_numeric|absent
-                usable INTEGER NOT NULL,                         -- 1 = safe to put in a statistic
+                value REAL,                                      -- NULL when not usable as a number (incl. ordinal rows)
+                value_low REAL,                                  -- band_range: lower bound
+                value_high REAL,                                 -- band_range: upper bound
+                category TEXT,                                   -- ordinal: e.g. 'clear'
+                category_rank INTEGER,                           -- ordinal: position on the scale
+                qualifier TEXT NOT NULL,                         -- exact|range_midpoint|below_detection|zero_reported|non_numeric|absent|ordinal|band_range
+                usable INTEGER NOT NULL,                         -- 1 = safe to put in a statistic (numeric OR ordinal)
                 flags TEXT,                                      -- JSON array of strings
                 PRIMARY KEY (ec5_uuid, parameter)
             );
@@ -103,10 +136,35 @@ def init_v2_db(db_path: str | None = None) -> None:
                 value_before TEXT, value_after TEXT, reason TEXT, run_at TEXT NOT NULL
             );
 
+            -- Added by V2_SPEC_ADDENDUM_2.md Rule D: nothing ambiguous is
+            -- silently dropped or silently guessed. `suggestion` is
+            -- displayed to the owner, never auto-applied.
+            CREATE TABLE IF NOT EXISTS review_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ec5_uuid TEXT NOT NULL, parameter TEXT,
+                value_raw TEXT NOT NULL,
+                issue TEXT NOT NULL,            -- ambiguous_decimal | unparseable | implausible | ambiguous_location | multi_value
+                suggestion TEXT,                -- proposed interpretation, NEVER auto-applied
+                suggestion_reason TEXT,
+                status TEXT NOT NULL DEFAULT 'open',   -- open | accepted | rejected
+                resolved_value TEXT, resolved_at TEXT, resolved_by TEXT
+            );
+
+            -- The only route by which a human judgement enters the data:
+            -- applied during `--refresh`, after automatic cleaning, and
+            -- every application writes a cleaning_log row. Never written
+            -- to directly by the API except via POST /review-queue/{id}.
+            CREATE TABLE IF NOT EXISTS manual_corrections (
+                ec5_uuid TEXT NOT NULL, parameter TEXT NOT NULL,
+                value TEXT NOT NULL, note TEXT, created_at TEXT NOT NULL,
+                PRIMARY KEY (ec5_uuid, parameter)
+            );
+
             CREATE INDEX IF NOT EXISTS idx_observations_date ON observations(sample_date);
             CREATE INDEX IF NOT EXISTS idx_observations_w3w ON observations(w3w);
             CREATE INDEX IF NOT EXISTS idx_measurements_parameter ON measurements(parameter);
             CREATE INDEX IF NOT EXISTS idx_location_aliases_w3w ON location_aliases(w3w);
+            CREATE INDEX IF NOT EXISTS idx_review_queue_status ON review_queue(status);
 
             CREATE TABLE IF NOT EXISTS v2_reports (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -138,6 +196,21 @@ def init_v2_db(db_path: str | None = None) -> None:
             );
             """
         )
+        # Defensive migration for a database created before Addendum 2:
+        # a no-op on any database created fresh from the script above,
+        # since those columns are already there.
+        _ensure_columns(conn, "measurements", {
+            "value_low": "REAL",
+            "value_high": "REAL",
+            "category": "TEXT",
+            "category_rank": "INTEGER",
+        })
+        # The what3words exactly as submitted. Kept alongside the resolved
+        # `w3w` so a reader can always see what the volunteer actually wrote
+        # -- and so an unresolved address is still visible rather than lost.
+        _ensure_columns(conn, "observations", {
+            "w3w_raw": "TEXT",
+        })
         conn.commit()
     finally:
         conn.close()
