@@ -1,0 +1,80 @@
+/*
+ * WFD band chip + legend styles.
+ *
+ * Every band is shown as: a distinct shape glyph in the band colour, plus
+ * the band word, plus (where space allows) its plain gloss — colour is
+ * never the only channel. See src/lib/bands.js for the glyph/colour map.
+ */
+
+.band-glyph {
+  display: inline-block;
+  font-size: 0.85em;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.band-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.band-chip--lg {
+  font-size: var(--fs-base);
+  gap: 8px;
+}
+
+.band-chip__glyph { font-size: 1.1em; }
+
+.band-chip__gloss {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+/* Solid pill variant, used sparingly (e.g. map popups) — text colour is
+   chosen per-band so it always clears 3:1 large-text contrast against the
+   fill, never assumed. */
+.band-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 8px;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.band-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding: var(--space-3) 0 0 0;
+  border-top: 1px solid var(--border-hairline);
+}
+
+.band-legend__item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--fs-sm);
+}
+
+.band-legend__item .band-glyph {
+  font-size: 1em;
+}
+
+.band-legend__name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.band-legend__gloss {
+  color: var(--text-secondary);
+}

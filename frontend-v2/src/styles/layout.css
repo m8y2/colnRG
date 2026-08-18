@@ -1,0 +1,211 @@
+/* Page shell: skip link, header/nav, main, footer, responsive container. */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+img, svg {
+  max-width: 100%;
+}
+
+/* Never let the page scroll horizontally; wide content scrolls in its own box */
+html, body {
+  overflow-x: hidden;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .container { padding: 0 var(--space-5); }
+}
+
+/* Skip link */
+.skip-link {
+  position: absolute;
+  left: var(--space-3);
+  top: -3rem;
+  background: var(--color-accent-strong);
+  color: var(--color-on-accent-strong);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  z-index: 1000;
+  transition: top 0.15s ease;
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: var(--space-3);
+}
+
+/* Header + primary nav */
+.site-header {
+  border-bottom: 1px solid var(--border-hairline);
+  background: var(--surface-card);
+}
+
+.site-header__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+}
+
+.site-header__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.site-header__brand:hover { text-decoration: none; }
+
+.site-header__title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.site-header__subtitle {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.primary-nav {
+  border-bottom: 1px solid var(--border-hairline);
+  background: var(--surface-page);
+  overflow-x: auto;
+}
+
+.primary-nav__list {
+  list-style: none;
+  display: flex;
+  margin: 0;
+  padding: 0 var(--space-4);
+  max-width: var(--content-max);
+  margin-inline: auto;
+  gap: var(--space-1);
+}
+
+@media (min-width: 640px) {
+  .primary-nav__list { padding: 0 var(--space-5); }
+}
+
+.primary-nav__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  padding: var(--space-2) var(--space-3);
+  white-space: nowrap;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  border-bottom: 3px solid transparent;
+}
+
+.primary-nav__link:hover {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.primary-nav__link[aria-current="page"] {
+  color: var(--text-primary);
+  border-bottom-color: var(--color-accent-strong);
+}
+
+/* Main content */
+.site-main {
+  flex: 1 0 auto;
+  padding: var(--space-6) 0 var(--space-8);
+}
+
+.page-header {
+  margin-bottom: var(--space-6);
+}
+
+.page-header h1 {
+  margin-bottom: var(--space-2);
+}
+
+/* Footer */
+.site-footer {
+  border-top: 1px solid var(--border-hairline);
+  background: var(--surface-card);
+  padding: var(--space-6) 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+}
+
+.site-footer__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Grids */
+.grid {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.grid--2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.grid--3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.grid--4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+/* Focus visibility — never remove without a replacement */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Works down to 320px: nothing here fixes a px width narrower than that */
+@media (max-width: 380px) {
+  .container { padding: 0 var(--space-3); }
+}
