@@ -2,7 +2,15 @@
 
 Mounts the v2 data API onto the existing, untouched v1 `app` object. This
 file makes zero changes to v1 — it only imports `app` from `main` and adds
-routes to it, exactly as the build spec asks.
+routes to it.
+
+Per V2_SPEC_ADDENDUM.md, v2 no longer shares v1's `dashboard.db` — it has
+its own database, `backend/coln_v2.db`, populated by `v2/ingest.py` and
+`v2/cleaning.py` (owned separately) from a fresh EpiCollect fetch.
+`init_v2_db()` only ever runs `CREATE TABLE IF NOT EXISTS`, so calling it
+here is safe and non-destructive whether `coln_v2.db` doesn't exist yet,
+is mid-ingest, or is fully populated: the v2 API will simply return empty
+results until the ingest has landed.
 
 Note: `main.py`'s `/api/health` and admin-key endpoints call
 `datetime.now(timezone.utc)` but the module only imports `datetime` and
