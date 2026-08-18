@@ -143,6 +143,13 @@ export function getReports({ type, key, audience } = {}, opts) {
   return request('/reports', { ...opts, params: { type, key, audience } });
 }
 
+// The report kinds and audiences, with the wording the interface uses.
+// Served by the backend so the questions asked here and the prompts the
+// engine runs cannot drift apart.
+export function getReportTypes(opts) {
+  return request('/reports/types', opts);
+}
+
 export function getReport(id, opts) {
   return request(`/reports/${encodeURIComponent(id)}`, opts);
 }

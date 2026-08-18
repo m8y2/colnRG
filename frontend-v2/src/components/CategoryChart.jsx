@@ -52,7 +52,7 @@ function DistributionTooltip({ active, payload }) {
  * Used where there's no room for a time axis (e.g. the river-wide
  * overview); `CategoryTimeline` below is the "is it changing" view.
  */
-export function CategoryDistribution({ points, parameterKey, title }) {
+export function CategoryDistribution({ points, parameterKey }) {
   const categories = categoryScaleFor(parameterKey, points);
   const counts = useMemo(() => {
     const byKey = new Map();

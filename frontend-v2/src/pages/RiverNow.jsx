@@ -91,6 +91,7 @@ export default function RiverNow({ navigate }) {
                     key={p.key}
                     parameter={p}
                     band={overview.parameters?.[p.key]?.catchment_band ?? null}
+                    overview={overview.parameters?.[p.key]}
                     compact
                   />
                 ))}

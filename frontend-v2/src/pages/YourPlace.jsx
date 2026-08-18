@@ -7,7 +7,7 @@ import LocationList from '../components/LocationList.jsx';
 import { BandChip } from '../components/BandChip.jsx';
 import Sparkline from '../components/Sparkline.jsx';
 import UsableCount from '../components/UsableCount.jsx';
-import { formatDate, formatReading, TOTAL_MAPPED_LOCATIONS, isWrittenObservation } from '../lib/format.js';
+import { formatDate, formatReading, TOTAL_MAPPED_LOCATIONS } from '../lib/format.js';
 import { isBanded, classifyBand } from '../lib/bands.js';
 
 function trendWords(trend) {

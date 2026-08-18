@@ -17,6 +17,12 @@ export function useApi(fn) {
 
   useEffect(() => {
     const gen = ++generation.current;
+    // Deliberate: reset to 'loading' the moment the inputs change. The
+    // alternative the lint rule prefers (keep showing the previous data
+    // while the next request is in flight) would briefly render one
+    // measurement's readings under another measurement's heading, which
+    // on a water-quality site is worse than a flash of a loading state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState((s) => ({ ...s, status: 'loading', error: null }));
     fn()
       .then((data) => {

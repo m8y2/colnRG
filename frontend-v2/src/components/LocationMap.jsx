@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { bandColorVar, bandGlyph, worstBand } from '../lib/bands.js';
+import { bandColorVar, bandGlyph, worstBand, latestBandNames } from '../lib/bands.js';
 
 // Builds the popup content with DOM APIs (textContent, not innerHTML) since
 // what3words addresses and other API-sourced text should be treated as
@@ -88,7 +88,7 @@ export default function LocationMap({ locations, onSelectLocation, selected }) {
     const bounds = [];
     for (const location of locations || []) {
       if (location.latitude == null || location.longitude == null) continue;
-      const worst = worstBand(Object.values(location.bands || {}));
+      const worst = worstBand(latestBandNames(location));
       const isSelected = selected && selected === location.w3w;
       const icon = L.divIcon({
         className: `location-marker${isSelected ? ' location-marker--selected' : ''}`,

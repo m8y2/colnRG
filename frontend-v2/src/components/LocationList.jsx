@@ -1,4 +1,4 @@
-import { worstBand, bandColorVar, bandGlyph } from '../lib/bands.js';
+import { worstBand, latestBandNames, bandColorVar, bandGlyph } from '../lib/bands.js';
 
 /**
  * The accessible twin of `LocationMap` — the same locations, as a
@@ -19,7 +19,7 @@ export default function LocationList({ locations, onSelect, selected, title = 'A
       <h3 style={{ fontSize: 'var(--fs-base)', marginBottom: 8 }}>{title}</h3>
       <ul className="location-list" aria-label={title}>
         {(locations || []).map((loc, i) => {
-          const worst = worstBand(Object.values(loc.bands || {}));
+          const worst = worstBand(latestBandNames(loc));
           const isSelected = selected === loc.w3w;
           return (
             <li key={loc.w3w} className="location-list__item">

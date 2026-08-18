@@ -69,7 +69,6 @@ export default function OverTime() {
       };
     });
 
-  const scopeLabel = scope === 'one-place' && effectiveLocation ? `at ${effectiveLocation}` : 'across the whole river';
   const trend = scope === 'one-place' ? seriesData?.location?.trends?.[parameterKey] : null;
   const title = scope === 'one-place'
     ? trendTitle(parameter?.label || parameterKey, trend)

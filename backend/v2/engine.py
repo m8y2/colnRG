@@ -247,6 +247,11 @@ def _row_to_report(row) -> dict:
     d["report_json"] = json.loads(d["report_json"])
     d["facts_json"] = json.loads(d["facts_json"])
     d["verification_json"] = json.loads(d["verification_json"])
+    # `verification` is the name the rest of the system uses -- the stored
+    # column is `verification_json`, and a reader shouldn't have to know
+    # that. Both are returned so nothing that already reads the column
+    # name breaks.
+    d["verification"] = d["verification_json"]
     return d
 
 

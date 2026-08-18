@@ -15,11 +15,13 @@ export function BandChip({ band, parameter, gloss, showGloss = true, size = 'bas
   const text = gloss ?? bandGloss(band, parameter);
   return (
     <span className={`band-chip${size === 'lg' ? ' band-chip--lg' : ''}`}>
-      <span className="band-chip__glyph" style={{ color: bandColorVar(band) }} aria-hidden="true">
-        {bandGlyph(band)}
+      <span className="band-chip__name">
+        <span className="band-chip__glyph" style={{ color: bandColorVar(band) }} aria-hidden="true">
+          {bandGlyph(band)}
+        </span>
+        {band}
       </span>
-      <span>{band}</span>
-      {showGloss && text && <span className="band-chip__gloss"> — {text}</span>}
+      {showGloss && text && <span className="band-chip__gloss">— {text}</span>}
     </span>
   );
 }

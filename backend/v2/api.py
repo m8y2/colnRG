@@ -16,10 +16,16 @@ import csv
 import io
 import statistics
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Header, HTTPException, Query, Response
+from pydantic import BaseModel
+
+from v2.reports_api import require_admin
 
 from v2.db import get_connection
 from v2.insights import (
+    ordinal_readings,
     data_quality,
     detect_rounds,
     downstream_profile,
@@ -61,6 +67,11 @@ def get_parameters():
 
 # ── /overview ─────────────────────────────────────────────────────────
 
+# Below this many usable numeric readings, a catchment-wide grade says
+# more about the sample size than about the river.
+MIN_READINGS_FOR_CATCHMENT_BAND = 20
+
+
 @router.get("/overview")
 def get_overview():
     """Headline state of the river: latest round, per-parameter catchment
@@ -92,12 +103,39 @@ def get_overview():
                 locations_in_band[band] = locations_in_band.get(band, 0) + 1
 
         catchment_mean = statistics.mean([r["value"] for r in rows]) if rows else None
+
+        # Two parameters must not carry a headline band, for different
+        # reasons, and both would otherwise mislead badly:
+        #
+        #  - dissolved oxygen and conductivity have a handful of readings
+        #    each out of 489. Grading the whole river from 4 numbers --
+        #    several of which the cleaner flagged as implausible -- would
+        #    state something the data cannot support.
+        #  - turbidity is recorded in words far more often than with a
+        #    meter. Banding it from the ~10 numeric readings ignores the
+        #    ~359 written observations and reports a minority as if it
+        #    were the whole picture.
+        n_ordinal = len(ordinal_readings(parameter=p))
+        mostly_words = n_ordinal > len(rows)
+        thin = len(rows) < MIN_READINGS_FOR_CATCHMENT_BAND
+        band = None
+        if catchment_mean is not None and not thin and not mostly_words:
+            band = classify_band(p, catchment_mean)
+
         parameters[p] = {
             "id": f"overview|{p}",
             "unit": PARAMETERS[p]["unit"],
             "n_readings": len(rows),
+            "n_ordinal_readings": n_ordinal,
             "n_locations_with_data": len(latest_per_location),
-            "catchment_band": classify_band(p, catchment_mean) if catchment_mean is not None else None,
+            "catchment_band": band,
+            "band_withheld_reason": (
+                "too few readings to grade the whole river" if thin and catchment_mean is not None
+                else "recorded in words far more often than with a meter" if mostly_words
+                else None
+            ),
+            "not_currently_measured": thin,
+            "mostly_written_observations": mostly_words,
             "locations_in_band": locations_in_band,
         }
 
@@ -375,3 +413,78 @@ def export_csv(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=coln-readings.csv"},
     )
+
+
+# ---------------------------------------------------------------------------
+# Review queue
+# ---------------------------------------------------------------------------
+#
+# Readings the cleaning pipeline could not interpret with confidence, and
+# locations that may be duplicates. Nothing here has been applied to the
+# data: a decision writes a `manual_corrections` row, which the next
+# ingest rebuild picks up. That keeps human judgement out of the derived
+# tables until somebody actually makes it, and reversible afterwards.
+
+
+@router.get("/review-queue")
+def get_review_queue(status: str = Query("open", pattern="^(open|accepted|rejected|all)$")):
+    conn = get_connection()
+    try:
+        if status == "all":
+            rows = conn.execute("SELECT * FROM review_queue ORDER BY issue, id").fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM review_queue WHERE status = ? ORDER BY issue, id", (status,)
+            ).fetchall()
+    finally:
+        conn.close()
+    return {"items": [dict(r) for r in rows]}
+
+
+class ReviewDecision(BaseModel):
+    status: str
+    resolved_value: str | None = None
+    resolved_by: str | None = None
+
+
+@router.post("/review-queue/{item_id}")
+def decide_review_item(
+    item_id: int,
+    decision: ReviewDecision,
+    authorization: str | None = Header(default=None),
+):
+    require_admin(authorization)
+    if decision.status not in ("accepted", "rejected"):
+        raise HTTPException(400, "status must be 'accepted' or 'rejected'")
+
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT * FROM review_queue WHERE id = ?", (item_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "No such review item.")
+
+        now = datetime.now(timezone.utc).isoformat()
+        conn.execute(
+            "UPDATE review_queue SET status = ?, resolved_value = ?, resolved_at = ?, "
+            "resolved_by = ? WHERE id = ?",
+            (decision.status, decision.resolved_value, now,
+             decision.resolved_by or "owner", item_id),
+        )
+
+        # Only an accepted value-correction changes a reading, and even
+        # then only via manual_corrections -- never by editing
+        # `measurements` here. An accepted location merge is recorded but
+        # left for the ingest step, which owns the locations table.
+        if (decision.status == "accepted" and decision.resolved_value
+                and row["parameter"] and row["issue"] != "ambiguous_location"):
+            conn.execute(
+                "INSERT INTO manual_corrections (ec5_uuid, parameter, value, note, created_at) "
+                "VALUES (?,?,?,?,?) ON CONFLICT(ec5_uuid, parameter) DO UPDATE SET "
+                "value=excluded.value, note=excluded.note, created_at=excluded.created_at",
+                (row["ec5_uuid"], row["parameter"], decision.resolved_value,
+                 f"accepted from review queue: {row['issue']}", now),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"id": item_id, "status": decision.status}

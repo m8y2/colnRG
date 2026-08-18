@@ -172,3 +172,18 @@ export function bandZones(parameter, domainMax) {
   }
   return zones;
 }
+
+
+/**
+ * The band names from a location's `latest_bands`, which the API returns
+ * as `{parameter: {value, date, band, qualifier}}` rather than as plain
+ * strings. Parameters with no numeric reading come back null and are
+ * dropped, so a location whose only recent readings are written
+ * observations shows no band rather than a misleading one.
+ */
+export function latestBandNames(location) {
+  const latest = location?.latest_bands || {};
+  return Object.values(latest)
+    .map((entry) => (entry && typeof entry === 'object' ? entry.band : entry))
+    .filter(Boolean);
+}

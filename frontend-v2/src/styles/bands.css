@@ -15,11 +15,21 @@
 
 .band-chip {
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 6px;
   font-weight: 600;
   font-size: var(--fs-sm);
   color: var(--text-primary);
+}
+
+/* Only the glyph and the band word are kept on one line. The plain-English
+   gloss after them is a sentence and must be free to wrap, or it overflows
+   the card at narrow widths. */
+.band-chip__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   white-space: nowrap;
 }
 
