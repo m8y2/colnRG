@@ -56,12 +56,8 @@ function LocationDetail({ w3w, ordered }) {
         <h2 style={{ marginBottom: 4 }}>{location.w3w}</h2>
         <p className="text-secondary mt-0">{positionSentence(location, ordered)}</p>
         <p className="site-position">
-          <span><strong>First sampled:</strong> {formatDate(location.first_sampled)}</span>
-          <span><strong>Last sampled:</strong> {formatDate(location.last_sampled)}</span>
-          <span>
-            <strong>Readings:</strong>{' '}
-            <UsableCount nUsable={location.n_usable ?? location.n_entries} nExcluded={location.n_excluded} />
-          </span>
+          <span><strong>First sampled:</strong> {formatDate(location.summary?.first_sampled)}</span>
+          <span><strong>Last sampled:</strong> {formatDate(location.summary?.last_sampled)}</span>
         </p>
       </div>
 
@@ -69,11 +65,16 @@ function LocationDetail({ w3w, ordered }) {
         {Object.keys(stats).map((key) => {
           const parameter = paramsByKey[key];
           if (!parameter) return null;
+          // The API splits each parameter into `numeric` and `ordinal`
+          // and never merges them — a measure can have both (turbidity has
+          // ~10 meter readings and ~359 written ones). Read them apart here
+          // for the same reason.
           const stat = stats[key];
+          const numeric = stat?.numeric || {};
+          const ordinal = stat?.ordinal || null;
           const banded = isBanded(parameter);
-          const latest = stat?.latest;
+          const latest = numeric.latest;
           const band = latest ? (banded ? classifyBand(latest.value, parameter) : null) : null;
-          const numericSeries = (stat?.readings || []).filter((r) => r.value !== null && r.value !== undefined);
           const notes = nonNumeric.filter((n) => n.parameter === key);
 
           return (
@@ -92,13 +93,23 @@ function LocationDetail({ w3w, ordered }) {
                   </p>
                   {banded && band && <BandChip band={band} parameter={parameter} />}
                 </>
+              ) : ordinal && ordinal.n_usable ? (
+                <p className="mt-0">
+                  <strong>Usually {ordinal.modal_label?.toLowerCase()}</strong>
+                  <span className="text-secondary">
+                    {' '}— from {ordinal.n_usable} written observation
+                    {ordinal.n_usable === 1 ? '' : 's'}, not a meter reading.
+                  </span>
+                </p>
               ) : (
-                <p className="text-muted mt-0">No numeric readings yet.</p>
+                <p className="text-muted mt-0">Not measured here yet.</p>
               )}
-              <div className="sparkline-wrap">
-                <Sparkline data={numericSeries} />
-                <span className="text-sm text-secondary">{trendWords(trends[key])}</span>
-              </div>
+              {numeric.n_usable > 0 && (
+                <p className="text-sm text-secondary mt-0">
+                  <UsableCount nUsable={numeric.n_usable} nExcluded={stat?.n_excluded} />
+                  {trendWords(trends[key]) ? ` · ${trendWords(trends[key])}` : ''}
+                </p>
+              )}
               {notes.length > 0 && (
                 <p className="text-sm text-secondary">
                   Also recorded as {notes.map((n) => `“${n.value_raw}”`).join(', ')} on{' '}

@@ -277,6 +277,11 @@ def get_series(
             "date": r["date"],
             "time": r["time"],
             "value": round(r["value"], dp),
+            # What the volunteer actually wrote. The whole point of the raw
+            # data view is being able to see it, and a reading whose value
+            # differs from its raw text is exactly what somebody auditing
+            # the cleaning wants to find.
+            "value_raw": r["value_raw"],
             "qualifier": r["qualifier"],
             "band": classify_band(parameter, r["value"]),
         }

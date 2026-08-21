@@ -203,7 +203,17 @@ export default function AllData() {
                       ? `${r.value}`
                       : '—',
               },
-              { key: 'value_raw', label: 'As written', wrap: true },
+              {
+                key: 'value_raw',
+                label: 'As written',
+                wrap: true,
+                // Only worth a cell when it differs from the reading —
+                // repeating "0.34" next to 0.34 for 400 rows is noise.
+                render: (r) =>
+                  r.value_raw && String(r.value_raw).trim() !== String(r.value ?? '')
+                    ? r.value_raw
+                    : '',
+              },
               {
                 key: 'qualifier',
                 label: 'Notes',
