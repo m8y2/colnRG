@@ -3,7 +3,7 @@ import { bandColorVar, bandGlyph, bandGloss, reachableBands, BAND_TEXT_ON_FILL }
 /**
  * The band identity chip used everywhere a WFD band is shown: a shape
  * glyph (never colour alone) in the band colour, the band word, and —
- * because "High" meaning *best* is a real trap for a lay reader — its
+ * with what the band means for this parameter where there is room —
  * plain gloss on first appearance. Pass `parameter` so the gloss can be
  * the parameter-specific meaning (e.g. what "Moderate phosphate" means)
  * rather than the generic one.

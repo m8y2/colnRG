@@ -33,21 +33,11 @@ AUDIENCE_LABELS = {
 
 SEVERITY_LABELS = {"good": "Good", "watch": "Watch", "concern": "Concern"}
 
-BAND_GLOSS = {
-    "High": "the best band",
-    "Good": "a healthy band",
-    "Moderate": "a middle band — an early sign of a problem",
-    "Poor": "a low band — a clear sign of a problem",
-    "Bad": "the worst band",
-    "Mixed": "different bands in different places",
-}
 
 
 def _band_display(band):
-    if not band:
-        return "Not banded"
-    gloss = BAND_GLOSS.get(band)
-    return f"{band} — {gloss}" if gloss else band
+    """The band name as written to a reader."""
+    return band or "Not banded"
 
 
 def _verification_summary(verification: dict | None) -> dict:

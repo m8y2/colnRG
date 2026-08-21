@@ -32,7 +32,7 @@ from __future__ import annotations
 REPORT_TYPES = ("location", "round", "catchment", "comparison", "trend", "data_quality")
 AUDIENCES = ("volunteer", "public", "technical")
 
-BAND_NAMES = ("High", "Good", "Moderate", "Poor", "Bad")
+BAND_NAMES = ("Excellent", "Good", "Moderate", "Poor", "Bad")
 # A report's *overall* assessment may legitimately span more than one
 # band (e.g. a catchment report where different locations sit in
 # different bands) or not apply at all (e.g. a data_quality report is not

@@ -17,11 +17,11 @@
 // is authoritatively recorded, so every per-parameter legend in the app is
 // driven from it instead of assuming all five bands apply everywhere.
 //
-// "High" meaning *best* is a trap for a lay reader, so every place a band
-// name appears it should be paired with its gloss on first use — see
+// Band names are shown with what they mean for the river where there is
+// room for it — see
 // `bandGloss()` and the `BandChip` component.
 
-export const BAND_ORDER = ['High', 'Good', 'Moderate', 'Poor', 'Bad'];
+export const BAND_ORDER = ['Excellent', 'Good', 'Moderate', 'Poor', 'Bad'];
 
 // A distinct shape per band so meaning survives colour-blindness and
 // greyscale printing — never rely on colour alone.
@@ -34,22 +34,13 @@ export const BAND_GLYPH = {
 };
 
 export const BAND_CSS_VAR = {
-  High: '--band-high',
+  Excellent: '--band-excellent',
   Good: '--band-good',
   Moderate: '--band-moderate',
   Poor: '--band-poor',
   Bad: '--band-bad',
 };
 
-// Generic, direction-agnostic gloss (mirrors v2/wfd.py's BAND_GLOSS) — a
-// fallback for anywhere a parameter's own band_meanings isn't available.
-export const BAND_GLOSS = {
-  High: 'the best band',
-  Good: 'a healthy band',
-  Moderate: 'a middle band — an early sign of a problem',
-  Poor: 'a low band — a clear sign of a problem',
-  Bad: 'the worst band',
-};
 
 // Text colour to put ON a solid band-colour fill (band-pill) so it always
 // clears large-text contrast, chosen per band rather than assumed white.
@@ -74,7 +65,7 @@ export function bandGlyph(band) {
 }
 
 export function bandGloss(band, parameter) {
-  return parameter?.band_meanings?.[band] ?? BAND_GLOSS[band] ?? '';
+  return parameter?.band_meanings?.[band] ?? '';
 }
 
 export function bandSeverity(band) {
@@ -117,7 +108,7 @@ export function classifyBand(value, parameter) {
   const higher = parameter.direction === 'higher_better';
   const meets = higher ? (v, b) => v >= b : (v, b) => v <= b;
 
-  if (bounds.High !== undefined && bounds.High !== null && meets(value, bounds.High)) return 'High';
+  if (bounds.Excellent !== undefined && bounds.Excellent !== null && meets(value, bounds.Excellent)) return 'Excellent';
   if (bounds.Good !== undefined && bounds.Good !== null && meets(value, bounds.Good)) return 'Good';
   if (bounds.Moderate !== undefined && bounds.Moderate !== null && meets(value, bounds.Moderate)) return 'Moderate';
   if (hasBad && bounds.Poor !== undefined && bounds.Poor !== null && meets(value, bounds.Poor)) return 'Poor';
@@ -137,14 +128,14 @@ export function bandZones(parameter, domainMax) {
   const higher = parameter.direction === 'higher_better';
 
   if (higher) {
-    const ordered = hasBad ? ['Bad', 'Poor', 'Moderate', 'Good', 'High'] : ['Poor', 'Moderate', 'Good', 'High'];
+    const ordered = hasBad ? ['Bad', 'Poor', 'Moderate', 'Good', 'Excellent'] : ['Poor', 'Moderate', 'Good', 'Excellent'];
     const upper = hasBad
       ? { Bad: bounds.Poor, Poor: bounds.Moderate, Moderate: bounds.Good, Good: bounds.High, High: domainMax }
       : { Poor: bounds.Moderate, Moderate: bounds.Good, Good: bounds.High, High: domainMax };
     let prev = 0;
     const zones = [];
     for (const band of ordered) {
-      const to = band === 'High' ? Math.max(domainMax, upper[band] ?? domainMax) : upper[band];
+      const to = band === 'Excellent' ? Math.max(domainMax, upper[band] ?? domainMax) : upper[band];
       if (to === undefined || to === null) continue;
       zones.push({ band, from: prev, to });
       prev = to;
@@ -154,7 +145,7 @@ export function bandZones(parameter, domainMax) {
 
   // lower_better: High is the lowest zone, the worst reachable band is the
   // open-ended top.
-  const steps = ['High', 'Good', 'Moderate'];
+  const steps = ['Excellent', 'Good', 'Moderate'];
   const zones = [];
   let prev = 0;
   for (const band of steps) {

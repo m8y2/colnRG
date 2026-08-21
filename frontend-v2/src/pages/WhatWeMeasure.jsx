@@ -11,7 +11,7 @@ function BandTable({ parameter }) {
   const bands = parameter.bands;
   if (!bands) return null;
   const meanings = parameter.band_meanings || {};
-  const order = ['High', 'Good', 'Moderate', 'Poor', 'Bad'];
+  const order = ['Excellent', 'Good', 'Moderate', 'Poor', 'Bad'];
   const present = order.filter((b) => bands[b] !== undefined || meanings[b]);
   if (present.length === 0) return null;
 
@@ -126,12 +126,6 @@ export default function WhatWeMeasure() {
           measurement below tells you something different about the river's
           health. The grades come from the Water Framework Directive, the
           standard the Environment Agency uses for rivers like the Coln.
-        </p>
-        <p className="note">
-          One thing worth knowing before you read on: in these grades{' '}
-          <strong>High is the best</strong> and <strong>Bad is the worst</strong>.
-          "High phosphate" in everyday speech would mean bad news, but a High
-          grade here means the river is doing well.
         </p>
       </div>
 

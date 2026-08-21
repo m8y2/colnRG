@@ -37,28 +37,9 @@ from __future__ import annotations
 
 # ── Band names, in order from best to worst ──────────────────────────────
 
-BAND_NAMES = ["High", "Good", "Moderate", "Poor", "Bad"]
-
-# A short, consistent plain-English gloss for each band name, independent
-# of which parameter it is describing. The UI/report copy should always
-# show the band name paired with this gloss on first use — "High" meaning
-# *best* is not obvious to a first-time reader.
-BAND_GLOSS = {
-    "High": "the best band",
-    "Good": "a healthy band",
-    "Moderate": "a middle band — an early sign of a problem",
-    "Poor": "a low band — a clear sign of a problem",
-    "Bad": "the worst band",
-}
+BAND_NAMES = ["Excellent", "Good", "Moderate", "Poor", "Bad"]
 
 
-def band_display(band: str | None) -> str | None:
-    """'High' -> 'High — the best band'. Used anywhere a band name is
-    first shown to a reader."""
-    if band is None:
-        return None
-    gloss = BAND_GLOSS.get(band)
-    return f"{band} — {gloss}" if gloss else band
 
 
 # ── Parameter metadata ────────────────────────────────────────────────────
@@ -110,9 +91,9 @@ PARAMETERS = {
             "per litre (mg/L). In water this dilute the two are the same number, so they are "
             "treated as equal."
         ),
-        "bands": {"High": 0.1, "Good": 0.2, "Moderate": 0.4, "Poor": 0.7},
+        "bands": {"Excellent": 0.1, "Good": 0.2, "Moderate": 0.4, "Poor": 0.7},
         "band_meanings": {
-            "High": "Phosphate is naturally low, so it is not feeding extra algae growth.",
+            "Excellent": "Phosphate is naturally low, so it is not feeding extra algae growth.",
             "Good": "Phosphate is a little higher, but still low enough that algae growth is unlikely to be a problem.",
             "Moderate": "Phosphate is high enough that it could start feeding more algae and weed growth than the river can easily cope with.",
             "Poor": "Phosphate is high enough to regularly feed unwanted algae and weed growth.",
@@ -139,9 +120,9 @@ PARAMETERS = {
             "per litre (mg/L). In water this dilute the two are the same number, so they are "
             "treated as equal."
         ),
-        "bands": {"High": 0.3, "Good": 0.6, "Moderate": 1.1, "Poor": 2.5},
+        "bands": {"Excellent": 0.3, "Good": 0.6, "Moderate": 1.1, "Poor": 2.5},
         "band_meanings": {
-            "High": "Ammonia is naturally low and not a concern for fish or insect life.",
+            "Excellent": "Ammonia is naturally low and not a concern for fish or insect life.",
             "Good": "Ammonia is a little higher, but still at a level fish and insects can tolerate.",
             "Moderate": "Ammonia is high enough to start putting stress on the most sensitive river life.",
             "Poor": "Ammonia is high enough that it is likely harming sensitive fish and insects.",
@@ -168,9 +149,9 @@ PARAMETERS = {
             "per litre (mg/L). In water this dilute the two are the same number, so they are "
             "treated as equal."
         ),
-        "bands": {"High": 5.6, "Good": 11.3, "Moderate": 16.9, "Poor": 22.6},
+        "bands": {"Excellent": 5.6, "Good": 11.3, "Moderate": 16.9, "Poor": 22.6},
         "band_meanings": {
-            "High": "Nitrate is naturally low and not overfeeding plant growth.",
+            "Excellent": "Nitrate is naturally low and not overfeeding plant growth.",
             "Good": "Nitrate is a little higher, but still at a level the river can absorb.",
             "Moderate": "Nitrate is high enough that it could start overfeeding algae and weed growth.",
             "Poor": "Nitrate is high enough to regularly overfeed algae and weed growth.",
@@ -197,9 +178,9 @@ PARAMETERS = {
         # Poor ("<4") is already open-ended in the source reference table,
         # so there is no further "Bad" band for this parameter — see the
         # module docstring.
-        "bands": {"High": 7, "Good": 5, "Moderate": 4, "Poor": 4},
+        "bands": {"Excellent": 7, "Good": 5, "Moderate": 4, "Poor": 4},
         "band_meanings": {
-            "High": "Plenty of oxygen for fish and insects.",
+            "Excellent": "Plenty of oxygen for fish and insects.",
             "Good": "A healthy amount of oxygen for fish and insects.",
             "Moderate": "Oxygen is starting to run low; sensitive species may struggle.",
             "Poor": "Oxygen is low enough that fish and insects are likely to be under stress.",
@@ -230,9 +211,9 @@ PARAMETERS = {
         # Poor ("≥20") is already open-ended in the source reference table,
         # so there is no further "Bad" band for this parameter — see the
         # module docstring.
-        "bands": {"High": 5, "Good": 10, "Moderate": 20, "Poor": 20},
+        "bands": {"Excellent": 5, "Good": 10, "Moderate": 20, "Poor": 20},
         "band_meanings": {
-            "High": "The water is close to clear.",
+            "Excellent": "The water is close to clear.",
             "Good": "The water is a little cloudy, but light and gills are not badly affected.",
             "Moderate": "The water is cloudy enough to start blocking light plants need.",
             "Poor": "The water is cloudy enough to block light and to risk clogging fish gills and gravel.",
@@ -347,7 +328,7 @@ def classify_band(parameter: str, value: float | None) -> str | None:
 
     if parameter == "phosphate":
         if value <= 0.1:
-            return "High"
+            return "Excellent"
         if value <= 0.2:
             return "Good"
         if value <= 0.4:
@@ -358,7 +339,7 @@ def classify_band(parameter: str, value: float | None) -> str | None:
 
     if parameter == "ammonia":
         if value <= 0.3:
-            return "High"
+            return "Excellent"
         if value <= 0.6:
             return "Good"
         if value <= 1.1:
@@ -369,7 +350,7 @@ def classify_band(parameter: str, value: float | None) -> str | None:
 
     if parameter == "nitrate":
         if value <= 5.6:
-            return "High"
+            return "Excellent"
         if value <= 11.3:
             return "Good"
         if value <= 16.9:
@@ -380,7 +361,7 @@ def classify_band(parameter: str, value: float | None) -> str | None:
 
     if parameter == "dissolved_oxygen":
         if value >= 7:
-            return "High"
+            return "Excellent"
         if value >= 5:
             return "Good"
         if value >= 4:
@@ -389,7 +370,7 @@ def classify_band(parameter: str, value: float | None) -> str | None:
 
     if parameter == "turbidity":
         if value < 5:
-            return "High"
+            return "Excellent"
         if value < 10:
             return "Good"
         if value < 20:

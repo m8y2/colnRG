@@ -38,7 +38,6 @@ from v2.insights import (
     trend,
 )
 from v2.wfd import (
-    BAND_GLOSS,
     BAND_NAMES,
     PARAMETER_ORDER,
     PARAMETERS,
@@ -61,7 +60,6 @@ def get_parameters():
     return {
         "parameters": all_parameters(),
         "band_names": BAND_NAMES,
-        "band_gloss": BAND_GLOSS,
     }
 
 

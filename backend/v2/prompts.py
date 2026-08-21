@@ -210,8 +210,8 @@ def _rules_block() -> str:
 def _wfd_reference_block() -> str:
     lines = [
         "## WFD reference bands",
-        "Five bands, best to worst: High, Good, Moderate, Poor, Bad. Always pair a band name "
-        "with its plain meaning on first use in a report — \"High\" meaning *best* is a genuine "
+        "Five bands, best to worst: Excellent, Good, Moderate, Poor, Bad. Say what a band means "
+        "for the river when it first appears in a report, rather than the band name alone — "
         "trap for a reader who has not seen this scale before. Bands are meter readings only — "
         "never apply them to a word-only (ordinal) observation.",
         "",

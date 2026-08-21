@@ -7,7 +7,7 @@ import LocationList from '../components/LocationList.jsx';
 import UsableCount from '../components/UsableCount.jsx';
 import { formatRelativeDate } from '../lib/format.js';
 
-const GOOD_BANDS = new Set(['High', 'Good']);
+const GOOD_BANDS = new Set(['Excellent', 'Good']);
 
 // A deterministic, plain-English headline composed from the catchment
 // band each banded parameter is currently in — never a made-up summary,

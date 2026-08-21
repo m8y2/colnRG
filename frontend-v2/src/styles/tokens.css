@@ -13,7 +13,7 @@
  *   only channel (see src/lib/bands.js and BandChip).
  * - The sampled-reading line/marker colour is a dedicated violet, chosen
  *   specifically because it is not used by any band, so a plotted line
- *   never visually collides with the "High" (blue) band zone behind it.
+ *   never visually collides with the Excellent (blue) band zone behind it.
  * - Link and primary-button colours use a darker step of the same blue so
  *   they clear 4.5:1 text contrast (checked against both page and card
  *   surfaces); the brighter step is reserved for chart marks/icons where
@@ -48,7 +48,7 @@
   --focus-ring: #1c5cab;
 
   /* WFD band colours — always paired with a shape glyph + word, never alone */
-  --band-high: #2a78d6;
+  --band-excellent: #2a78d6;
   --band-good: #0ca30c;
   --band-moderate: #fab219;
   --band-poor: #ec835a;
@@ -106,7 +106,7 @@
     --color-on-accent-strong: #0b0b0b;
     --focus-ring: #3987e5;
 
-    --band-high: #3987e5;
+    --band-excellent: #3987e5;
     --band-good: #0ca30c;
     --band-moderate: #fab219;
     --band-poor: #ec835a;
@@ -144,7 +144,7 @@
   --color-on-accent-strong: #0b0b0b;
   --focus-ring: #3987e5;
 
-  --band-high: #3987e5;
+  --band-excellent: #3987e5;
   --band-good: #0ca30c;
   --band-moderate: #fab219;
   --band-poor: #ec835a;
