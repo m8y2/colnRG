@@ -5,8 +5,10 @@ import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState.j
 import NativeSelect from '../components/NativeSelect.jsx';
 import { formatDate } from '../lib/format.js';
 
-// The report centre. Asked as three plain questions rather than a form:
-// what do you want to know about, which one, and who is it for.
+// One kind of report: one per round of testing, covering the whole river.
+// The type and audience pickers were removed when the owner cut the other
+// report kinds and the parish-council / technical registers — a select
+// with one option is a worse way of saying "there is only one".
 
 const SEVERITY_LABEL = { good: 'Good news', watch: 'Worth watching', concern: 'Needs attention' };
 
@@ -143,42 +145,24 @@ function RenderedReport({ report }) {
 }
 
 export default function Reports() {
-  const typesCall = useApi(() => api.getReportTypes());
-  const locationsCall = useApi(() => api.getLocations());
   const roundsCall = useApi(() => api.getRounds());
   const listCall = useApi(() => api.getReports());
 
-  const [type, setType] = useState('location');
   const [key, setKey] = useState('');
-  const [audience, setAudience] = useState('volunteer');
   const [job, setJob] = useState(null);
   const [viewing, setViewing] = useState(null);
   const [error, setError] = useState('');
   const pollRef = useRef(null);
 
-  const locations = locationsCall.data?.locations || [];
   const rounds = roundsCall.data?.rounds || [];
-  const types = typesCall.data?.types || [];
-  const audiences = typesCall.data?.audiences || [];
 
-  // What "which one" means depends on what was asked for.
-  const keyOptions = (() => {
-    if (type === 'location') return locations.map((l) => ({ value: l.w3w, label: l.w3w }));
-    if (type === 'round') return rounds.map((r) => ({ value: String(r.round), label: `Round ${r.round} (${formatDate(r.start)})` }));
-    if (type === 'trend') return [
-      { value: 'phosphate', label: 'Phosphate' },
-      { value: 'ammonia', label: 'Ammonia' },
-      { value: 'nitrate', label: 'Nitrate' },
-    ];
-    if (type === 'comparison') {
-      const opts = [];
-      for (let i = 1; i < rounds.length; i += 1) {
-        opts.push({ value: `${rounds[i - 1].round}_vs_${rounds[i].round}`, label: `Round ${rounds[i - 1].round} compared with round ${rounds[i].round}` });
-      }
-      return opts;
-    }
-    return [{ value: String(new Date().getFullYear()), label: `${new Date().getFullYear()} so far` }];
-  })();
+  // Newest round first: the one somebody is most likely to want.
+  const keyOptions = [...rounds]
+    .sort((a, b) => b.round - a.round)
+    .map((r) => ({
+      value: String(r.round),
+      label: `Round ${r.round} — ${formatDate(r.start)} to ${formatDate(r.end)}`,
+    }));
 
   const effectiveKey = key || keyOptions[0]?.value || '';
 
@@ -188,7 +172,7 @@ export default function Reports() {
     setError('');
     setViewing(null);
     try {
-      const started = await api.generateReport({ type, key: effectiveKey, audience });
+      const started = await api.generateReport({ type: 'round', key: effectiveKey });
       setJob({ ...started, progress: 0, message: 'Queued' });
       clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
@@ -233,37 +217,14 @@ export default function Reports() {
       </div>
 
       <section className="card stack" aria-labelledby="ask-h">
-        <h2 id="ask-h">Ask for a report</h2>
+        <h2 id="ask-h">Write a report for a round</h2>
 
         <NativeSelect
-          id="report-type"
-          label="What would you like to know about?"
-          value={type}
-          onChange={(v) => {
-            setType(v);
-            setKey('');
-          }}
-          options={types.map((t) => ({ value: t.key, label: t.label }))}
-          hint={types.find((t) => t.key === type)?.help}
-        />
-
-        {keyOptions.length > 0 && (
-          <NativeSelect
-            id="report-key"
-            label="Which one?"
-            value={effectiveKey}
-            onChange={setKey}
-            options={keyOptions}
-          />
-        )}
-
-        <NativeSelect
-          id="report-audience"
-          label="Who is it for?"
-          value={audience}
-          onChange={setAudience}
-          options={audiences.map((a) => ({ value: a.key, label: a.label }))}
-          hint={audiences.find((a) => a.key === audience)?.help}
+          id="report-round"
+          label="Which round of testing?"
+          value={effectiveKey}
+          onChange={setKey}
+          options={keyOptions}
         />
 
         <div className="toolbar">

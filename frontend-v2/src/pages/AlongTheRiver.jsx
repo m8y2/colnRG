@@ -44,7 +44,14 @@ export default function AlongTheRiver() {
     return <p className="text-secondary">Loading…</p>;
   }
 
-  const allPoints = data?.locations || data?.sites || [];
+  // The endpoint returns one aggregated figure per location under `mean`
+  // (a round may hold more than one reading at a place). DownstreamChart's
+  // contract is `value`, so normalise here rather than making every
+  // consumer know both names.
+  const allPoints = (data?.locations || []).map((loc) => ({
+    ...loc,
+    value: loc.value ?? loc.mean ?? null,
+  }));
   const numericPoints = allPoints.filter((p) => p.value !== null && p.value !== undefined);
   const nonNumeric = allPoints.filter((p) => (p.value === null || p.value === undefined) && p.value_raw);
 

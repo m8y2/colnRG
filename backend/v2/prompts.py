@@ -1,6 +1,6 @@
 """System and user prompt templates for the v2 LLM report engine.
 
-Six report types x three audiences share one JSON schema (`schemas.py`)
+Round reports share one JSON schema (`schemas.py`)
 and one set of hard rules; only the *voice* and the *brief* change per
 audience/type, never the numbers. See `verify.py` for how those numbers
 get checked afterwards.
@@ -63,28 +63,18 @@ def extract_prompt_meta(user_prompt: str) -> dict:
 # Audience voice
 # ---------------------------------------------------------------------------
 
-AUDIENCE_GUIDANCE = {
-    "volunteer": (
-        "Write for the volunteers who collect these samples and their neighbours along the "
-        "river — people with no scientific background. Aim for a reading age of about 12: "
-        "short sentences, one idea per sentence, and a plain-English gloss the first time any "
-        "technical term appears (including WFD band names — see below). Avoid jargon from "
-        "water science unless it is glossed."
-    ),
-    "public": (
-        "Write for a parish newsletter or local press: still plain English with every "
-        "technical term glossed on first use, but a slightly more formal, impersonal register "
-        "than the volunteer version — suitable for printing in a newsletter without further "
-        "editing."
-    ),
-    "technical": (
-        "Write for an Environment Agency officer or a council officer who already knows WFD "
-        "terminology. Full figures and standard terms (band names, units, statistical terms) "
-        "can be used without glossing them, and more precision is expected. The content rules "
-        "below still apply in full — a technical audience does not change what the data can "
-        "support."
-    ),
-}
+# One voice. The owner asked for round reports only, written for the
+# volunteers who collect the samples and the neighbours who read them —
+# the parish-council and Environment-Agency registers were cut rather
+# than kept unused. Reports are printable, so a parish newsletter can
+# reprint this version as it stands.
+READER_GUIDANCE = (
+    "Write for the volunteers who collect these samples and their neighbours along the "
+    "river — people with no scientific background. Aim for a reading age of about 12: "
+    "short sentences, one idea per sentence, and a plain-English gloss the first time any "
+    "technical term appears (including WFD band names — see below). Avoid jargon from "
+    "water science unless it is glossed."
+)
 
 # ---------------------------------------------------------------------------
 # Report type briefs
@@ -199,7 +189,7 @@ _RULES = [
         "that exist."
     ),
     (
-        "Write for the stated audience, glossing every technical term the first time it is "
+        "Gloss every technical term the first time it is "
         "used, and use British English and DD/MM/YYYY dates. Never refer to the reader as a "
         "\"user\"."
     ),
@@ -287,11 +277,10 @@ def build_system_prompt(report_type: str, audience: str) -> str:
     glossary, and output format. Contains no per-request data (no
     timestamps, ids, or facts pack), so it is identical across every call
     for the same pair."""
-    audience_guidance = AUDIENCE_GUIDANCE.get(audience, AUDIENCE_GUIDANCE["volunteer"])
     type_guidance = REPORT_TYPE_GUIDANCE.get(report_type, "")
     return "\n\n".join([
         _ROLE_AND_CONTEXT,
-        f"## Audience for this report\n{audience_guidance}",
+        f"## Who this report is for\n{READER_GUIDANCE}",
         f"## What this report covers\n{type_guidance}",
         _RULES_BLOCK,
         _WFD_REFERENCE_BLOCK,

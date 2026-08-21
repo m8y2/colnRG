@@ -91,7 +91,14 @@ export default function DownstreamChart({ points, parameter }) {
 
   return (
     <div className="full-bleed-x">
-      <div style={{ width: '100%', minWidth }}>
+      {/* `width: max(100%, Npx)` rather than `width:100%` on a min-width
+          wrapper. Recharts' ResponsiveContainer measures its parent, and
+          inside an overflow-x container a percentage width has nothing
+          definite to resolve against — it measured 0 and the chart
+          rendered as blank space, which is exactly how v1's bar charts
+          fail. This keeps one bar per location legible and scrolls when
+          there are more locations than fit. */}
+      <div style={{ width: `max(100%, ${minWidth}px)` }}>
         <div style={{ width: '100%', height: 380 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={sorted} margin={{ top: 32, right: 16, bottom: 8, left: 4 }} barCategoryGap="20%">

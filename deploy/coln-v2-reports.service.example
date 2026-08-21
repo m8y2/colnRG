@@ -1,0 +1,24 @@
+# Writes the round report for any round of testing that has finished.
+# Install as /etc/systemd/system/coln-v2-reports.service
+#
+# MISTRAL_API_KEY is read from the environment. Put it in
+# /etc/coln-v2.env (chmod 600, root-owned) rather than inline here —
+# systemd unit files are world-readable.
+
+[Unit]
+Description=Coln River Guardians — write round reports that are due
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/coln-dashboard/backend
+EnvironmentFile=/etc/coln-v2.env
+ExecStart=/opt/coln-dashboard/backend/venv/bin/python -m v2.scheduler --verbose
+
+# One report per round, so this touches nothing but its own database.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/coln-dashboard/backend
+ProtectHome=true

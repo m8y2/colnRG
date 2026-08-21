@@ -29,8 +29,13 @@ from v2.db import get_connection
 
 logger = logging.getLogger(__name__)
 
-REPORT_TYPES = ("location", "round", "catchment", "comparison", "trend", "data_quality")
-AUDIENCES = ("volunteer", "public", "technical")
+# The owner asked for one kind of report: one per round of testing,
+# covering the whole river, in one voice. The other report types and the
+# parish-council / technical registers were cut rather than left on as
+# options nobody wanted. Their builders survive in facts.py and git
+# history if they are ever wanted back.
+REPORT_TYPES = ("round",)
+AUDIENCE = "volunteer"
 
 router = APIRouter(prefix="/api/v2", tags=["v2-reports"])
 
@@ -141,9 +146,8 @@ def _run_job(job_id: str, report_type: str, report_key: str, audience: str,
 
 
 class GenerateRequest(BaseModel):
-    type: str
-    key: str
-    audience: str = "volunteer"
+    key: str                       # the round number
+    type: str = "round"
     period_start: str | None = None
     period_end: str | None = None
 
@@ -153,9 +157,10 @@ def trigger_report(body: GenerateRequest, authorization: str | None = Header(def
     require_admin(authorization)
 
     if body.type not in REPORT_TYPES:
-        raise HTTPException(400, f"Unknown report type {body.type!r}. Expected one of {sorted(REPORT_TYPES)}.")
-    if body.audience not in AUDIENCES:
-        raise HTTPException(400, f"Unknown audience {body.audience!r}. Expected one of {sorted(AUDIENCES)}.")
+        raise HTTPException(
+            400,
+            f"Only round reports are written. Got {body.type!r}.",
+        )
 
     with _queue_lock:
         conn = get_connection()
@@ -172,7 +177,7 @@ def trigger_report(body: GenerateRequest, authorization: str | None = Header(def
             duplicate = conn.execute(
                 "SELECT id FROM v2_report_jobs WHERE report_type = ? AND report_key = ? "
                 "AND audience = ? AND state IN ('queued','running')",
-                (body.type, body.key, body.audience),
+                (body.type, body.key, AUDIENCE),
             ).fetchone()
             if duplicate:
                 raise HTTPException(409, "That report is already being written.")
@@ -181,7 +186,7 @@ def trigger_report(body: GenerateRequest, authorization: str | None = Header(def
             conn.execute(
                 "INSERT INTO v2_report_jobs (id, report_type, report_key, audience, state, "
                 "progress, message, created_at) VALUES (?,?,?,?, 'queued', 0, 'Queued', ?)",
-                (job_id, body.type, body.key, body.audience, _now()),
+                (job_id, body.type, body.key, AUDIENCE, _now()),
             )
             conn.commit()
         finally:
@@ -189,7 +194,7 @@ def trigger_report(body: GenerateRequest, authorization: str | None = Header(def
 
     threading.Thread(
         target=_run_job,
-        args=(job_id, body.type, body.key, body.audience, body.period_start, body.period_end),
+        args=(job_id, body.type, body.key, AUDIENCE, body.period_start, body.period_end),
         daemon=True,
     ).start()
     return {"job_id": job_id, "state": "queued"}
@@ -228,43 +233,24 @@ def get_job(job_id: str):
 def get_reports(
     type: str | None = Query(default=None),
     key: str | None = Query(default=None),
-    audience: str | None = Query(default=None),
 ):
-    return {"reports": engine.list_reports(type, key, audience)}
+    return {"reports": engine.list_reports(type, key, None)}
 
 
 @router.get("/reports/types")
 def get_report_types():
-    """What can be asked for, in the words the interface uses."""
+    """What can be asked for. One kind: a round of testing."""
     return {
         "types": [
-            {"key": "location", "label": "Tell me about a place",
-             "help": "One sampling point, from its first reading to its latest."},
-            {"key": "round", "label": "Tell me about a sampling round",
-             "help": "One round of sampling, across the whole river."},
-            {"key": "catchment", "label": "Tell me about the whole river",
-             "help": "The state of the Coln over a period you choose."},
-            {"key": "comparison", "label": "Compare two periods",
-             "help": "What changed between one round or period and another."},
-            {"key": "trend", "label": "How has one measure changed?",
-             "help": "The long-term direction for a single measurement."},
-            {"key": "data_quality", "label": "How reliable is the data?",
-             "help": "Coverage, gaps and readings needing a second look."},
-        ],
-        "audiences": [
-            {"key": "volunteer", "label": "Volunteers and neighbours",
-             "help": "Plain English, no jargon."},
-            {"key": "public", "label": "Parish council or press",
-             "help": "Slightly more formal, still plain."},
-            {"key": "technical", "label": "Technical",
-             "help": "Water Framework Directive terms and full figures."},
+            {"key": "round", "label": "A round of testing",
+             "help": "Every location sampled in one round, and how the river looked across it."},
         ],
     }
 
 
 @router.get("/reports/versions")
-def get_versions(type: str = Query(...), key: str = Query(...), audience: str = Query("volunteer")):
-    return {"versions": engine.list_versions(type, key, audience)}
+def get_versions(key: str = Query(...), type: str = "round"):
+    return {"versions": engine.list_versions(type, key, AUDIENCE)}
 
 
 @router.get("/reports/{report_id}")

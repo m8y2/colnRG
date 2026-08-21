@@ -1,0 +1,17 @@
+# Install as /etc/systemd/system/coln-v2-reports.timer, then:
+#   systemctl daemon-reload && systemctl enable --now coln-v2-reports.timer
+#
+# Daily is the right cadence even though sampling is monthly: a round is
+# only considered finished 5 days after its last sample, so the scheduler
+# needs to look regularly to notice one settling. On days when nothing is
+# due it generates nothing and costs nothing.
+
+[Unit]
+Description=Write Coln round reports daily
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,45 @@
+# Serving v2 alongside the live v1 site.
+#
+# This is an EXAMPLE, not the live config. The live file is
+# /etc/nginx/sites-enabled/coln-dashboard on the droplet; see MIGRATION.md,
+# which is the source of truth for the Sectigo cert, the :80 -> :443
+# redirect and the security headers. Add the two blocks below to it rather
+# than replacing it — replacing it loses HTTPS.
+#
+# v1 keeps / and /api. v2 gets /v2 and /api/v2. Both are served by the same
+# uvicorn process once it runs main_v2:app instead of main:app, so there is
+# no second backend to supervise.
+
+# The v2 front end. Built with base '/v2/', so its asset URLs already
+# carry the prefix.
+location /v2/ {
+    alias /opt/coln-dashboard/frontend-v2/dist/;
+    try_files $uri $uri/ /v2/index.html;
+
+    # Hashed asset filenames, so they can be cached hard. index.html must
+    # not be, or a deploy takes hours to reach anyone.
+    location ~* ^/v2/assets/.*\.(js|css|woff2?|png|svg|jpg)$ {
+        alias /opt/coln-dashboard/frontend-v2/dist/assets/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
+
+location = /v2 {
+    return 301 /v2/;
+}
+
+# /api/v2 is handled by the same FastAPI app as /api, so this only exists
+# to be explicit. If the existing `location /api` block already proxies
+# everything under /api, this block is redundant — check before adding it.
+location /api/v2/ {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # A report takes 30-90 seconds. The default 60s proxy_read_timeout
+    # would cut the generate request off mid-flight.
+    proxy_read_timeout 180s;
+}
