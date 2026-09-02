@@ -66,6 +66,13 @@ def _build_photo_cache():
 threading.Thread(target=_build_photo_cache, daemon=True).start()
 
 
+def _parse_date(d):
+    try:
+        return datetime.strptime(d, "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return None
+
+
 @app.on_event("startup")
 def startup():
     init_db()
@@ -95,7 +102,7 @@ def get_stats():
         "SELECT COUNT(DISTINCT w3w_site_code) FROM entries WHERE w3w_site_code IS NOT NULL"
     ).fetchone()[0]
     date_range = conn.execute(
-        "SELECT MIN(sample_date), MAX(sample_date) FROM entries WHERE sample_date IS NOT NULL"
+        "SELECT MIN(sample_date), MAX(sample_date) FROM entries WHERE sample_date IS NOT NULL AND sample_date != ''"
     ).fetchone()
     with_photos = conn.execute(
         "SELECT COUNT(*) FROM entries WHERE photo_url IS NOT NULL AND photo_url != ''"
@@ -284,7 +291,7 @@ def get_rounds(
 ):
     conn = get_connection()
     dates = conn.execute(
-        "SELECT sample_date, COUNT(*) as c FROM entries WHERE sample_date IS NOT NULL GROUP BY sample_date ORDER BY sample_date"
+        "SELECT sample_date, COUNT(*) as c FROM entries WHERE sample_date IS NOT NULL AND sample_date != '' GROUP BY sample_date ORDER BY sample_date"
     ).fetchall()
 
     # Detect rounds: consecutive date runs >10 total entries within 4-day window
@@ -292,11 +299,13 @@ def get_rounds(
     current = []
     for r in dates:
         d = r["sample_date"]
+        if _parse_date(d) is None:
+            continue
         if not current:
             current = [(d, r["c"])]
         else:
             last = current[-1][0]
-            gap = (datetime.strptime(d, "%Y-%m-%d") - datetime.strptime(last, "%Y-%m-%d")).days
+            gap = (_parse_date(d) - _parse_date(last)).days
             if gap <= 4:
                 current.append((d, r["c"]))
             else:
@@ -403,18 +412,20 @@ def get_location_series(
     conn = get_connection()
 
     dates = conn.execute(
-        "SELECT sample_date, COUNT(*) as c FROM entries WHERE sample_date IS NOT NULL GROUP BY sample_date ORDER BY sample_date"
+        "SELECT sample_date, COUNT(*) as c FROM entries WHERE sample_date IS NOT NULL AND sample_date != '' GROUP BY sample_date ORDER BY sample_date"
     ).fetchall()
 
     rounds = []
     current = []
     for r in dates:
         d = r["sample_date"]
+        if _parse_date(d) is None:
+            continue
         if not current:
             current = [(d, r["c"])]
         else:
             last = current[-1][0]
-            gap = (datetime.strptime(d, "%Y-%m-%d") - datetime.strptime(last, "%Y-%m-%d")).days
+            gap = (_parse_date(d) - _parse_date(last)).days
             if gap <= 4:
                 current.append((d, r["c"]))
             else:
