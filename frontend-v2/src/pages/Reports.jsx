@@ -15,22 +15,17 @@ const SEVERITY_LABEL = { good: 'Good news', watch: 'Worth watching', concern: 'N
 function VerificationBadge({ verification }) {
   if (!verification) return null;
   const ok = verification.status === 'verified';
-  const problems = [
-    ...(verification.unmatched_numbers || []),
-    ...(verification.invalid_evidence_ids || []),
-    ...(verification.banned_terms || []),
-  ];
   return (
     <div className={`verify-badge verify-badge--${ok ? 'ok' : 'warn'}`}>
       <strong>
         {ok
           ? 'Every figure checked against the data'
-          : 'Some of this could not be checked automatically'}
+          : 'Some of this could not be checked'}
       </strong>
       <p>
         {ok
-          ? 'Each number in this report was matched back to a reading in the database before it was saved.'
-          : `${problems.length} thing(s) in this report could not be matched to the data. Treat those with caution.`}
+          ? 'Each number in this report was checked back against a real reading before it was saved.'
+          : 'Some parts of this report could not be checked against the data. Treat those with caution.'}
       </p>
     </div>
   );
@@ -46,8 +41,7 @@ function RenderedReport({ report }) {
       <header className="stack">
         <h2>{body.headline}</h2>
         <p className="report__meta">
-          {report.report_type} report · {report.report_key} · version {report.version} ·
-          written {formatDate((report.generated_at || '').slice(0, 10))}
+          Round {report.report_key} report, written {formatDate((report.generated_at || '').slice(0, 10))}
         </p>
         <VerificationBadge verification={report.verification} />
         <p className="lede">{body.summary_plain}</p>
@@ -161,7 +155,7 @@ export default function Reports() {
     .sort((a, b) => b.round - a.round)
     .map((r) => ({
       value: String(r.round),
-      label: `Round ${r.round} — ${formatDate(r.start)} to ${formatDate(r.end)}`,
+      label: `Round ${r.round}: ${formatDate(r.start)} to ${formatDate(r.end)}`,
     }));
 
   const effectiveKey = key || keyOptions[0]?.value || '';
@@ -210,9 +204,9 @@ export default function Reports() {
       <div className="page-header">
         <h1>Reports</h1>
         <p className="lede">
-          Every figure in a report is taken from the readings and checked
-          against them afterwards, so a report cannot quote a number the data
-          does not contain.
+          A report is written from the readings, and every figure in it is
+          checked back against them, so a report never quotes a number the
+          data does not contain.
         </p>
       </div>
 
@@ -270,11 +264,11 @@ export default function Reports() {
               {listCall.data.reports.map((r) => (
                 <li key={r.id}>
                   <button type="button" className="link-button" onClick={() => openReport(r.id)}>
-                    {r.report_type} — {r.report_key}
+                    Round {r.report_key}
                   </button>
                   <span className="muted">
                     {' '}
-                    v{r.version} · {formatDate((r.generated_at || '').slice(0, 10))}
+                    {formatDate((r.generated_at || '').slice(0, 10))}
                   </span>
                 </li>
               ))}

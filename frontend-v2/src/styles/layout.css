@@ -144,6 +144,16 @@ html, body {
   margin-bottom: var(--space-2);
 }
 
+/* Headings that carry an action on the opposite side (e.g. the photo
+   gallery's "Show all descriptions" button), centred between the title
+   and its lead text. */
+.page-header--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
 /* Footer */
 .site-footer {
   border-top: 1px solid var(--border-hairline);
@@ -159,6 +169,11 @@ html, body {
   gap: var(--space-2) var(--space-5);
   align-items: center;
   justify-content: space-between;
+}
+
+.license-notice {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 /* Grids */

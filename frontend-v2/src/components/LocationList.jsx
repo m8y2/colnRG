@@ -15,7 +15,7 @@ import { worstBand, latestBandNames, bandColorVar, bandGlyph } from '../lib/band
  */
 export default function LocationList({ locations, onSelect, selected, title = 'All locations, source to Thames' }) {
   return (
-    <div>
+    <div className="location-list-wrap">
       <h3 style={{ fontSize: 'var(--fs-base)', marginBottom: 8 }}>{title}</h3>
       <ul className="location-list" aria-label={title}>
         {(locations || []).map((loc, i) => {

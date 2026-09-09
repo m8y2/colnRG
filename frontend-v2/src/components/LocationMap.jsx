@@ -104,7 +104,7 @@ export default function LocationMap({ locations, onSelectLocation, selected }) {
       const el = marker.getElement();
       if (el) {
         el.setAttribute('role', 'button');
-        el.setAttribute('aria-label', `${location.w3w}${worst ? ` — ${worst} band` : ' — no readings yet'}`);
+        el.setAttribute('aria-label', `${location.w3w}${worst ? `, ${worst} band` : ', no readings yet'}`);
       }
       bounds.push([location.latitude, location.longitude]);
     }
@@ -120,9 +120,6 @@ export default function LocationMap({ locations, onSelectLocation, selected }) {
         className="site-map"
         aria-label="Map of River Coln sampling locations, coloured by their most recent water quality band"
       />
-      <p className="precision-note">
-        Locations are what3words addresses — 3-metre squares recorded by volunteers once a month.
-      </p>
     </div>
   );
 }

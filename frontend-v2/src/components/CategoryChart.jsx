@@ -133,7 +133,7 @@ export function CategoryTimeline({ points, parameterKey }) {
     const cat = categories.find((c) => c.rank === only.category_rank);
     return (
       <p className="text-secondary">
-        There is only one observation so far — not enough to show a pattern. It was recorded as{' '}
+        There is only one observation so far, not enough to show a pattern. It was recorded as{' '}
         <strong>{cat?.label || only.category}</strong> on {formatDate(only.date)}.
       </p>
     );

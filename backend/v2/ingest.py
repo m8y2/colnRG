@@ -69,6 +69,35 @@ JUNK_LOCATION_TEXT = {
     "end of round three",
 }
 
+# Photos the owner has taken off the public site. Keyed by entry UUID, with
+# the reason in the owner's words. Applied during every rebuild (and logged
+# like any other owner decision), so a removal survives a re-ingest and can
+# be reversed by deleting the entry here.
+#
+#   f027ad15-12e2-496e-a0e2  "Our new assistants" (2025-11-01): removed on
+#       the v1 site -- the two photos show the volunteers themselves rather
+#       than the river, so they are not shown in the gallery or on the
+#       location page.
+PHOTO_REMOVALS = {
+    "f027ad15-12e2-496e-a0e2-3598d29728d5":
+        "owner removed these photos on the v1 site: they show people "
+        "('Our new assistants'), not the river",
+}
+
+
+def _is_photo_url(value: str) -> bool:
+    """EpiCollect sometimes exports a placeholder sentence instead of a
+    photo URL while a volunteer's photo is still uploading ('Photo not
+    synced yet'). Those are screened out here, the same way v1's
+    `/api/photos` filtered non-http values -- the raw payload keeps the
+    text, the derived observations row does not."""
+    return value.startswith("http://") or value.startswith("https://")
+
+
+def _screened_photo(raw: str | None) -> str | None:
+    value = (raw or "").strip()
+    return value if value and _is_photo_url(value) else None
+
 
 # ---------------------------------------------------------------------------
 # Fetch
@@ -196,6 +225,16 @@ def rebuild(conn) -> dict:
     for p in PARAMETERS:
         stats["per_parameter"][p] = {"usable": 0, "unusable": 0, "ordinal": 0, "numeric": 0}
 
+    # The owner's accepted decisions survive rebuilds (review_queue itself
+    # is rebuilt fresh each time, so resolved items are identified from
+    # review_decisions and never queued again).
+    resolved_readings = resolved_reading_keys(conn)
+    resolved_merges = {
+        d["value_raw"]: d["resolved_value"]
+        for d in review_decisions(conn)
+        if d["kind"] == "merge" and d["resolved_value"]
+    }
+
     aliases_seen: dict[str, tuple[str, str, str | None]] = {}
     rows = conn.execute(
         "SELECT ec5_uuid, payload_json FROM raw_entries ORDER BY ec5_uuid"
@@ -234,6 +273,23 @@ def rebuild(conn) -> dict:
             if res.normalized and res.normalized not in aliases_seen:
                 aliases_seen[res.normalized] = (res.w3w, res.match_type, res.note)
 
+        photo_url = _screened_photo(payload.get(F_PHOTO))
+        photo_2_url = _screened_photo(payload.get(F_PHOTO_2))
+        for field, raw, screened in (
+            ("photo_url", payload.get(F_PHOTO), photo_url),
+            ("photo_2_url", payload.get(F_PHOTO_2), photo_2_url),
+        ):
+            raw_text = (raw or "").strip()
+            if raw_text and not screened:
+                conn.execute(
+                    "INSERT INTO cleaning_log (ec5_uuid, parameter, action, value_before, "
+                    "value_after, reason, run_at) VALUES (?,?,?,?,?,?,?)",
+                    (uuid, None, "photo_screened", raw_text[:120], None,
+                     "not a photo URL (photo may still have been uploading when the entry "
+                     "was submitted); kept in the raw record, not shown", run_at),
+                )
+                stats["logged"] += 1
+
         conn.execute(
             "INSERT INTO observations (ec5_uuid, sample_date, sample_time, w3w, w3w_raw, "
             "location_status, recorder, landowner_raw, notes, photo_url, photo_2_url, "
@@ -244,8 +300,8 @@ def rebuild(conn) -> dict:
              extract_recorder(payload.get(F_W3W)),
              (payload.get(F_LANDOWNER) or "").strip() or None,
              collect_notes(payload),
-             (payload.get(F_PHOTO) or "").strip() or None,
-             (payload.get(F_PHOTO_2) or "").strip() or None,
+             photo_url,
+             photo_2_url,
              (payload.get(F_PHOTO_DESC) or "").strip() or None,
              excluded, reason),
         )
@@ -273,7 +329,7 @@ def rebuild(conn) -> dict:
                 )
                 stats["logged"] += 1
 
-            if c.review is not None:
+            if c.review is not None and (uuid, parameter) not in resolved_readings:
                 conn.execute(
                     "INSERT INTO review_queue (ec5_uuid, parameter, value_raw, issue, "
                     "suggestion, suggestion_reason) VALUES (?,?,?,?,?,?)",
@@ -290,9 +346,36 @@ def rebuild(conn) -> dict:
                 (alias, w3w, match_type, note),
             )
 
-    stats["queued"] += queue_possible_duplicates(conn)
+    stats["queued"] += queue_possible_duplicates(conn, resolved_merges)
     suggest_decimal_shifts(conn)
     stats["manual_applied"] = apply_manual_corrections(conn, run_at)
+    stats["decisions_applied"] = apply_review_decisions(conn, run_at)
+    stats["photos_removed"] = apply_photo_removals(conn, run_at)
+
+    # The buckets above were counted during the cleaning pass, before the
+    # owner's decisions were applied -- recount from the finished
+    # measurements table so the report tells the truth about the data.
+    # Readings the owner removed no longer exist as rows, so they are
+    # counted from the decision log rather than lost from the report.
+    for p in PARAMETERS:
+        usable = conn.execute(
+            "SELECT COUNT(*) FROM measurements WHERE parameter = ? AND usable = 1", (p,)
+        ).fetchone()[0]
+        ordinal = conn.execute(
+            "SELECT COUNT(*) FROM measurements WHERE parameter = ? AND usable = 1 "
+            "AND qualifier = 'ordinal'", (p,)
+        ).fetchone()[0]
+        unusable = conn.execute(
+            "SELECT COUNT(*) FROM measurements WHERE parameter = ? AND usable = 0", (p,)
+        ).fetchone()[0]
+        removed = conn.execute(
+            "SELECT COUNT(*) FROM cleaning_log WHERE parameter = ? "
+            "AND action = 'owner_removed_reading'", (p,)
+        ).fetchone()[0]
+        stats["per_parameter"][p] = {
+            "usable": usable, "unusable": unusable + removed,
+            "ordinal": ordinal, "numeric": usable - ordinal,
+        }
     conn.commit()
     return stats
 
@@ -347,8 +430,8 @@ def suggest_decimal_shifts(conn) -> int:
                 "UPDATE review_queue SET suggestion = ?, suggestion_reason = ? WHERE id = ?",
                 (f"{shifted:g}",
                  f"{row['value']:g} is outside the plausible range for {row['parameter']} "
-                 f"({lo:g}-{hi:g}). Reading it as {shifted:g} — a decimal point {divisor} "
-                 f"places out — is plausible and close to this location's usual "
+                 f"({lo:g}-{hi:g}). Reading it as {shifted:g}, a decimal point {divisor} "
+                 f"places out, is plausible and close to this location's usual "
                  f"{median:g}. Accept only if that matches the record sheet.",
                  row["id"]),
             )
@@ -357,14 +440,18 @@ def suggest_decimal_shifts(conn) -> int:
     return suggested
 
 
-def queue_possible_duplicates(conn) -> int:
+def queue_possible_duplicates(conn, resolved_merges: dict | None = None) -> int:
     """Two supplement points sit within riverbank-width of an existing
     reference point. They might be the same sampling spot recorded on a
     different 3m square -- but that is the owner's call, not ours, so they
-    stay separate and the question goes in the queue."""
+    stay separate and the question goes in the queue. Merges the owner has
+    already accepted are applied (and so never re-queued)."""
+    resolved_merges = resolved_merges or {}
     queued = 0
     for w3w, meta in load_supplement().items():
         if not meta.get("needs_owner_review"):
+            continue
+        if w3w in resolved_merges:
             continue
         row = conn.execute(
             "SELECT ec5_uuid FROM observations WHERE w3w = ? ORDER BY sample_date LIMIT 1",
@@ -381,7 +468,7 @@ def queue_possible_duplicates(conn) -> int:
             "INSERT INTO review_queue (ec5_uuid, parameter, value_raw, issue, suggestion, "
             "suggestion_reason) VALUES (?,?,?,?,?,?)",
             (row["ec5_uuid"], None, w3w, "ambiguous_location",
-             f"possibly the same location as {near}",
+             near,
              f"{w3w} ({n} reading(s)) is {dist:.0f} m from {near}. That is about the width "
              f"of a riverbank, so they may be one sampling point recorded on two different "
              f"what3words squares. Accepting merges them; rejecting keeps them separate."),
@@ -390,9 +477,13 @@ def queue_possible_duplicates(conn) -> int:
     return queued
 
 
+def review_decisions(conn) -> list[dict]:
+    return [dict(r) for r in conn.execute("SELECT * FROM review_decisions").fetchall()]
+
+
 def apply_manual_corrections(conn, run_at: str) -> int:
-    """The only route by which a human judgement enters the data. Applied
-    after automatic cleaning, logged, and reversible by deleting the row."""
+    """Legacy numeric overrides (pre-review_decisions). Applied after
+    automatic cleaning, logged, and reversible by deleting the row."""
     applied = 0
     for row in conn.execute(
         "SELECT ec5_uuid, parameter, value, note FROM manual_corrections"
@@ -410,13 +501,147 @@ def apply_manual_corrections(conn, run_at: str) -> int:
             "WHERE ec5_uuid = ? AND parameter = ?",
             (value, row["ec5_uuid"], row["parameter"]),
         )
+        _log_decision(conn, row["ec5_uuid"], row["parameter"], "manual_correction",
+                      str(before["value"]) if before and before["value"] is not None else None,
+                      str(value), row["note"] or "accepted by the project owner", run_at)
+        applied += 1
+    return applied
+
+
+def resolved_reading_keys(conn) -> set[tuple[str, str]]:
+    """(ec5_uuid, parameter) pairs the owner has already decided on, so the
+    rebuild does not re-queue them."""
+    return {
+        (r["ec5_uuid"], r["parameter"])
+        for r in conn.execute(
+            "SELECT ec5_uuid, parameter FROM review_decisions WHERE parameter IS NOT NULL"
+        ).fetchall()
+    }
+
+
+def _log_decision(conn, ec5_uuid, parameter, action, value_before, value_after,
+                  reason, run_at) -> None:
+    conn.execute(
+        "INSERT INTO cleaning_log (ec5_uuid, parameter, action, value_before, "
+        "value_after, reason, run_at) VALUES (?,?,?,?,?,?,?)",
+        (ec5_uuid, parameter, action, value_before, value_after, reason, run_at),
+    )
+
+
+def apply_photo_removals(conn, run_at: str) -> int:
+    """Apply PHOTO_REMOVALS -- photos the owner has deliberately taken off
+    the public site. Logged like any other owner decision, so the removal
+    is auditable and reversible by deleting the constant's entry."""
+    removed = 0
+    for ec5_uuid, reason in PHOTO_REMOVALS.items():
+        before = conn.execute(
+            "SELECT photo_url, photo_2_url FROM observations WHERE ec5_uuid = ?",
+            (ec5_uuid,),
+        ).fetchone()
         conn.execute(
-            "INSERT INTO cleaning_log (ec5_uuid, parameter, action, value_before, value_after, "
-            "reason, run_at) VALUES (?,?,?,?,?,?,?)",
-            (row["ec5_uuid"], row["parameter"], "manual_correction",
-             str(before["value"]) if before and before["value"] is not None else None,
-             str(value), row["note"] or "accepted by the project owner", run_at),
+            "UPDATE observations SET photo_url = NULL, photo_2_url = NULL WHERE ec5_uuid = ?",
+            (ec5_uuid,),
         )
+        if before and (before["photo_url"] or before["photo_2_url"]):
+            _log_decision(conn, ec5_uuid, None, "owner_removed_photo",
+                          (before["photo_url"] or before["photo_2_url"])[:120],
+                          None, reason, run_at)
+            removed += 1
+    return removed
+
+
+def apply_review_decisions(conn, run_at: str) -> int:
+    """Apply the owner's accepted review_queue decisions to the rebuilt
+    derived tables. Every application writes a cleaning_log row, so the
+    whole judgement trail stays auditable and reversible (delete the
+    review_decisions row and rebuild)."""
+    from v2.wfd import ORDINAL_SCALES
+
+    applied = 0
+    for d in review_decisions(conn):
+        kind = d["kind"]
+        note = d["note"] or "accepted by the project owner"
+
+        if kind == "value":
+            before = conn.execute(
+                "SELECT value FROM measurements WHERE ec5_uuid = ? AND parameter = ?",
+                (d["ec5_uuid"], d["parameter"]),
+            ).fetchone()
+            value = float(d["resolved_value"])
+            conn.execute(
+                "UPDATE measurements SET value = ?, qualifier = 'manual_correction', "
+                "usable = 1 WHERE ec5_uuid = ? AND parameter = ?",
+                (value, d["ec5_uuid"], d["parameter"]),
+            )
+            _log_decision(conn, d["ec5_uuid"], d["parameter"], "manual_correction",
+                          str(before["value"]) if before and before["value"] is not None else None,
+                          str(value), note, run_at)
+
+        elif kind == "not_measured":
+            before = conn.execute(
+                "SELECT value, category FROM measurements WHERE ec5_uuid = ? AND parameter = ?",
+                (d["ec5_uuid"], d["parameter"]),
+            ).fetchone()
+            conn.execute(
+                "UPDATE measurements SET usable = 0, value = NULL, value_low = NULL, "
+                "value_high = NULL, category = NULL, category_rank = NULL, "
+                "qualifier = 'absent' WHERE ec5_uuid = ? AND parameter = ?",
+                (d["ec5_uuid"], d["parameter"]),
+            )
+            _log_decision(conn, d["ec5_uuid"], d["parameter"], "owner_not_measured",
+                          str(before["value"]) if before and before["value"] is not None
+                          else (before["category"] if before else None),
+                          None, note, run_at)
+
+        elif kind == "category":
+            rank = None
+            for step in ORDINAL_SCALES.get(d["parameter"], []):
+                if step["category"] == d["resolved_value"]:
+                    rank = step["rank"]
+                    break
+            before = conn.execute(
+                "SELECT value, category FROM measurements WHERE ec5_uuid = ? AND parameter = ?",
+                (d["ec5_uuid"], d["parameter"]),
+            ).fetchone()
+            conn.execute(
+                "UPDATE measurements SET category = ?, category_rank = ?, value = NULL, "
+                "value_low = NULL, value_high = NULL, qualifier = 'ordinal', usable = 1 "
+                "WHERE ec5_uuid = ? AND parameter = ?",
+                (d["resolved_value"], rank, d["ec5_uuid"], d["parameter"]),
+            )
+            _log_decision(conn, d["ec5_uuid"], d["parameter"], "manual_correction",
+                          before["value"] if before and before["value"] is not None
+                          else (before["category"] if before else None),
+                          d["resolved_value"], note, run_at)
+
+        elif kind == "remove":
+            before = conn.execute(
+                "SELECT value, category FROM measurements WHERE ec5_uuid = ? AND parameter = ?",
+                (d["ec5_uuid"], d["parameter"]),
+            ).fetchone()
+            conn.execute(
+                "DELETE FROM measurements WHERE ec5_uuid = ? AND parameter = ?",
+                (d["ec5_uuid"], d["parameter"]),
+            )
+            _log_decision(conn, d["ec5_uuid"], d["parameter"], "owner_removed_reading",
+                          str(before["value"]) if before and before["value"] is not None
+                          else (before["category"] if before else None),
+                          None, note, run_at)
+
+        elif kind == "merge":
+            source, target = d["value_raw"], d["resolved_value"]
+            n = conn.execute(
+                "UPDATE observations SET w3w = ? WHERE w3w = ?", (target, source)
+            ).rowcount
+            conn.execute(
+                "INSERT OR REPLACE INTO location_aliases (alias, w3w, match_type, note) "
+                "VALUES (?,?,?,?)",
+                (source, target, "merged_duplicate",
+                 "owner accepted that this was the same sampling point"),
+            )
+            conn.execute("DELETE FROM locations WHERE w3w = ?", (source,))
+            _log_decision(conn, d["ec5_uuid"], None, "merge_location", source, target,
+                          f"{note} ({n} observation(s) moved)", run_at)
         applied += 1
     return applied
 
@@ -444,6 +669,8 @@ def report(stats: dict) -> None:
     print(f"  {'TOTAL USABLE':22s} {total_usable:6d}")
     print(f"\nCleaning actions logged  {stats['logged']}")
     print(f"Manual corrections       {stats.get('manual_applied', 0)}")
+    print(f"Owner decisions applied  {stats.get('decisions_applied', 0)}")
+    print(f"Owner photo removals     {stats.get('photos_removed', 0)}")
     print(f"Awaiting owner review    {stats['queued']}")
 
 
@@ -468,6 +695,7 @@ def main() -> int:
         print(f"Fetched {store_raw(conn, entries)} raw entries from EpiCollect")
 
     report(rebuild(conn))
+
     conn.close()
     return 0
 

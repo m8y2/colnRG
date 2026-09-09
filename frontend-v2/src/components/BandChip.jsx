@@ -21,7 +21,7 @@ export function BandChip({ band, parameter, gloss, showGloss = true, size = 'bas
         </span>
         {band}
       </span>
-      {showGloss && text && <span className="band-chip__gloss">— {text}</span>}
+      {showGloss && text && <span className="band-chip__gloss">: {text}</span>}
     </span>
   );
 }
@@ -62,7 +62,7 @@ export function BandLegend({ parameter, title }) {
               {bandGlyph(band)}
             </span>
             <span className="band-legend__name">{band}</span>
-            <span className="band-legend__gloss">— {bandGloss(band, parameter)}</span>
+            <span className="band-legend__gloss">: {bandGloss(band, parameter)}</span>
           </li>
         ))}
       </ul>

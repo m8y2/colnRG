@@ -14,16 +14,20 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import statistics
 
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Header, HTTPException, Query, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from v2.reports_api import require_admin
 
 from v2.db import get_connection
+from v2.photos import mark_invalid, photo_is_real, screening_ready
+from v2.photo_crop import CACHE_DIR, is_real_photo_head, process_photo, sha1
 from v2.insights import (
     ordinal_readings,
     data_quality,
@@ -56,9 +60,12 @@ PARAMETER_PATTERN = "^(" + "|".join(PARAMETER_ORDER) + ")$"
 def get_parameters():
     """Plain-English parameter metadata + WFD bands — the single source
     the frontend's glossary page ('What we measure') and every chart's
-    band legend are built from."""
+    band legend are built from. `not_currently_measured` is computed from
+    real reading counts (Rule G), never asserted."""
+    from v2.insights import usable_counts_by_parameter
+
     return {
-        "parameters": all_parameters(),
+        "parameters": all_parameters(usable_counts_by_parameter()),
         "band_names": BAND_NAMES,
     }
 
@@ -198,8 +205,38 @@ def list_locations():
     out.sort(key=lambda loc: (loc["river_order"] is None, loc["river_order"] or 0))
     return {
         "locations": out,
-        "precision_note": "Locations are what3words addresses — 3-metre squares recorded by volunteers once a month.",
+        "precision_note": "Locations are what3words addresses: 3-metre squares recorded by volunteers once a month.",
     }
+
+
+def _photo_payload(original_url: str, description, date) -> dict:
+    """One photo as the frontend sees it. `url` is our own media endpoint,
+    which serves the auto-cropped version (see v2/photo_crop.py);
+    `original_url` is the EpiCollect original, kept as a fallback (and
+    used by the offline demo, which has no backend to crop through)."""
+    return {
+        "url": f"/api/v2/media/{sha1(original_url)}.jpg",
+        "original_url": original_url,
+        "description": description,
+        "date": date,
+    }
+
+
+def _attach_modified(photos: list[dict]) -> list[dict]:
+    """Mark each photo with whether processing changed it (letterbox crop
+    or manual rotation) — the demo build embeds those as data URIs so the
+    offline copy shows the corrected image too."""
+    if not photos:
+        return photos
+    conn = get_connection()
+    try:
+        rows = conn.execute("SELECT sha, modified FROM photo_cache").fetchall()
+    finally:
+        conn.close()
+    flags = {r["sha"]: bool(r["modified"]) for r in rows}
+    for p in photos:
+        p["modified"] = flags.get(sha1(p["original_url"]), False)
+    return photos
 
 
 def _location_photos(w3w: str) -> list[dict]:
@@ -218,11 +255,97 @@ def _location_photos(w3w: str) -> list[dict]:
 
     photos = []
     for r in rows:
-        if r["photo_url"]:
-            photos.append({"url": r["photo_url"], "description": r["photo_desc"], "date": r["sample_date"]})
-        if r["photo_2_url"]:
-            photos.append({"url": r["photo_2_url"], "description": None, "date": r["sample_date"]})
-    return photos
+        if r["photo_url"] and photo_is_real(r["photo_url"]):
+            photos.append(_photo_payload(r["photo_url"], r["photo_desc"], r["sample_date"]))
+        if r["photo_2_url"] and photo_is_real(r["photo_2_url"]):
+            photos.append(_photo_payload(r["photo_2_url"], None, r["sample_date"]))
+    return _attach_modified(photos)
+
+
+# ── /photos ───────────────────────────────────────────────────────────
+
+@router.get("/photos")
+def get_photos():
+    """Every photo submitted with a sample, across all locations, newest
+    first — the whole-river gallery behind the Photo gallery page. One
+    entry per photo (a visit can carry two).
+
+    Only located, non-excluded samples are included, and only photos that
+    are actually there: EpiCollect serves a placeholder JPEG ("photo not
+    synced") until a photo has finished uploading, and those are screened
+    out by the validation cache (see `v2/photos.py`). `url` is our media
+    endpoint, serving the full-resolution photo auto-cropped of letterbox
+    bars (see `v2/photo_crop.py`); `original_url` is the EpiCollect
+    original."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT w3w, sample_date, photo_url, photo_2_url, photo_desc FROM observations "
+            "WHERE excluded = 0 AND w3w IS NOT NULL AND ("
+            "  (photo_url IS NOT NULL AND photo_url != '') OR "
+            "  (photo_2_url IS NOT NULL AND photo_2_url != '')"
+            ") ORDER BY sample_date DESC, w3w"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    photos = []
+    for r in rows:
+        if r["photo_url"] and photo_is_real(r["photo_url"]):
+            photos.append({
+                "w3w": r["w3w"], "date": r["sample_date"],
+                **_photo_payload(r["photo_url"], r["photo_desc"], r["sample_date"]),
+            })
+        if r["photo_2_url"] and photo_is_real(r["photo_2_url"]):
+            photos.append({
+                "w3w": r["w3w"], "date": r["sample_date"],
+                **_photo_payload(r["photo_2_url"], None, r["sample_date"]),
+            })
+    _attach_modified(photos)
+    return {
+        "photos": photos,
+        "total": len(photos),
+        "screening_ready": screening_ready(),
+    }
+
+
+# ── /media ────────────────────────────────────────────────────────────
+
+@router.get("/media/{name}")
+def get_media(name: str):
+    """Serve one processed photo from the crop cache, processing it on
+    demand if it is not cached yet (see `v2/photo_crop.py`). Photos the
+    screening has marked as "photo not synced" placeholders 404, and are
+    never served; the frontend falls back to the EpiCollect original for
+    genuinely missing ones."""
+    if not re.fullmatch(r"[0-9a-f]{40}\.jpg", name):
+        raise HTTPException(404, "Unknown photo.")
+    key = name[:-4]
+    path = CACHE_DIR / name
+    if not path.exists():
+        conn = get_connection()
+        try:
+            row = conn.execute(
+                "SELECT original_url, valid FROM photo_cache WHERE sha = ?", (key,)
+            ).fetchone()
+        finally:
+            conn.close()
+        if row is None:
+            raise HTTPException(404, "Unknown photo.")
+        if not row["valid"]:
+            raise HTTPException(404, "That photo has not synced yet.")
+        processed = process_photo(row["original_url"])
+        if processed is None:
+            if not is_real_photo_head(row["original_url"]):
+                mark_invalid(row["original_url"])
+                raise HTTPException(404, "That photo has not synced yet.")
+            raise HTTPException(502, "That photo could not be processed.")
+        path = processed
+    return FileResponse(
+        path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 @router.get("/locations/{w3w}")
@@ -249,7 +372,7 @@ def get_location(w3w: str):
         "summary": summary,
         "trends": trends,
         "photos": _location_photos(w3w),
-        "precision_note": "Locations are what3words addresses — 3-metre squares recorded by volunteers once a month.",
+        "precision_note": "Locations are what3words addresses: 3-metre squares recorded by volunteers once a month.",
     }
 
 
@@ -298,6 +421,99 @@ def get_series(
         "bands": meta["bands"],
         "n": len(points),
         "points": points,
+    }
+
+
+# ── /observations ──────────────────────────────────────────────────────
+#
+# Every usable reading in one wide table: one row per sampling visit, with
+# each measurement as its own key inside the row (v1's entries table was
+# the same idea, one row per visit with a column per measurement). Unlike
+# v1, the row is keyed by what3words location and ordinal readings are
+# included: "usable" means usable, not just numeric, so the table shows
+# the word-scale turbidity and depth readings too. Something a reader
+# cannot find in the numbers needs the words.
+
+@router.get("/observations")
+def get_observations(
+    w3w: str | None = Query(None),
+    date_from: str | None = Query(None, alias="from"),
+    date_to: str | None = Query(None, alias="to"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=100),
+):
+    """Wide table of visits, newest first, paginated, filterable by
+    location or date range. `total` counts visits, not readings."""
+    conditions = ["o.excluded = 0", "o.w3w IS NOT NULL", "o.sample_date IS NOT NULL"]
+    params: list = []
+    if w3w:
+        conditions.append("o.w3w = ?")
+        params.append(w3w)
+    if date_from:
+        conditions.append("o.sample_date >= ?")
+        params.append(date_from)
+    if date_to:
+        conditions.append("o.sample_date <= ?")
+        params.append(date_to)
+    where = " AND ".join(conditions)
+
+    conn = get_connection()
+    try:
+        total = conn.execute(
+            f"SELECT COUNT(*) AS c FROM observations o WHERE {where}", params
+        ).fetchone()["c"]
+
+        total_pages = max(1, (total + per_page - 1) // per_page)
+        offset = (page - 1) * per_page
+        visits = conn.execute(
+            f"SELECT ec5_uuid, sample_date, sample_time, w3w, recorder "
+            f"FROM observations o WHERE {where} "
+            f"ORDER BY o.sample_date DESC, o.sample_time DESC, o.w3w "
+            f"LIMIT ? OFFSET ?",
+            [*params, per_page, offset],
+        ).fetchall()
+        uuids = [v["ec5_uuid"] for v in visits]
+        measurements = {}
+        if uuids:
+            placeholders = ",".join("?" for _ in uuids)
+            for m in conn.execute(
+                f"SELECT * FROM measurements WHERE usable = 1 "
+                f"AND ec5_uuid IN ({placeholders})",
+                uuids,
+            ).fetchall():
+                measurements.setdefault(m["ec5_uuid"], {})[m["parameter"]] = m
+    finally:
+        conn.close()
+
+    rows = []
+    for v in visits:
+        m_by_param = measurements.get(v["ec5_uuid"], {})
+        per_param = {}
+        for param_key, m in m_by_param.items():
+            per_param[param_key] = {
+                "value": round(m["value"], round_dp(param_key)) if m["value"] is not None else None,
+                "value_low": round(m["value_low"], round_dp(param_key)) if m["value_low"] is not None else None,
+                "value_high": round(m["value_high"], round_dp(param_key)) if m["value_high"] is not None else None,
+                "value_raw": m["value_raw"],
+                "category": m["category"],
+                "category_rank": m["category_rank"],
+                "qualifier": m["qualifier"],
+            }
+        rows.append({
+            "ec5_uuid": v["ec5_uuid"],
+            "date": v["sample_date"],
+            "time": v["sample_time"],
+            "w3w": v["w3w"],
+            "recorder": v["recorder"],
+            "measurements": per_param,
+        })
+
+    return {
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "total_pages": total_pages,
+        "rows": rows,
     }
 
 
@@ -441,6 +657,7 @@ class ReviewDecision(BaseModel):
     status: str
     resolved_value: str | None = None
     resolved_by: str | None = None
+    kind: str | None = None  # value | not_measured | category | remove | merge
 
 
 @router.post("/review-queue/{item_id}")
@@ -467,18 +684,29 @@ def decide_review_item(
              decision.resolved_by or "owner", item_id),
         )
 
-        # Only an accepted value-correction changes a reading, and even
-        # then only via manual_corrections -- never by editing
-        # `measurements` here. An accepted location merge is recorded but
-        # left for the ingest step, which owns the locations table.
-        if (decision.status == "accepted" and decision.resolved_value
-                and row["parameter"] and row["issue"] != "ambiguous_location"):
+        # Only an accepted decision changes anything, and even then only
+        # via review_decisions -- never by editing `measurements` here.
+        # The ingest rebuild owns the derived tables; a plain "rejected"
+        # keeps the reading as the automatic cleaning left it.
+        if decision.status == "accepted":
+            if row["issue"] == "ambiguous_location":
+                kind = decision.kind or "merge"
+                target = decision.resolved_value or row["suggestion"]
+                if not target or target.startswith("possibly"):
+                    raise HTTPException(
+                        400, "A merge needs the canonical what3words address to merge into."
+                    )
+            else:
+                kind = decision.kind or "value"
+                target = decision.resolved_value
+                if kind in ("value",) and not target:
+                    raise HTTPException(400, "resolved_value is required for this decision.")
             conn.execute(
-                "INSERT INTO manual_corrections (ec5_uuid, parameter, value, note, created_at) "
-                "VALUES (?,?,?,?,?) ON CONFLICT(ec5_uuid, parameter) DO UPDATE SET "
-                "value=excluded.value, note=excluded.note, created_at=excluded.created_at",
-                (row["ec5_uuid"], row["parameter"], decision.resolved_value,
-                 f"accepted from review queue: {row['issue']}", now),
+                "INSERT INTO review_decisions (ec5_uuid, parameter, value_raw, issue, kind, "
+                "resolved_value, note, resolved_at, resolved_by) VALUES (?,?,?,?,?,?,?,?,?)",
+                (row["ec5_uuid"], row["parameter"], row["value_raw"], row["issue"], kind,
+                 target, f"accepted from review queue ({row['issue']})", now,
+                 decision.resolved_by or "owner"),
             )
         conn.commit()
     finally:

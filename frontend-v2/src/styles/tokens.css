@@ -2,12 +2,10 @@
  * Design tokens: colour (light + dark), spacing, radii, shadows.
  *
  * Palette rationale (see dataviz skill references/palette.md for the method):
- * - WFD bands (High/Good/Moderate/Poor/Bad) use the real-world blue/green/
- *   yellow/orange/red severity convention (the same one the Environment
- *   Agency's own WFD status maps use), built from the skill's documented
- *   categorical slot 1 (blue, for High) and its four fixed status steps
- *   (good/warning/serious/critical, for Good/Moderate/Poor/Bad). Because
- *   this is a 5-step *status* scale rather than an 8-slot categorical
+ * - WFD bands (Excellent/Good/Moderate/Poor/Bad) use the real-world green/
+ *   yellow-green/yellow/orange/red severity convention, built from the
+ *   skill's documented status steps (good/warning/serious/critical).
+ *   Because this is a 5-step *status* scale rather than an 8-slot categorical
  *   identity palette, every place a band colour appears it is paired with
  *   a distinct shape glyph AND its plain-English word — colour is never the
  *   only channel (see src/lib/bands.js and BandChip).
@@ -48,8 +46,8 @@
   --focus-ring: #1c5cab;
 
   /* WFD band colours — always paired with a shape glyph + word, never alone */
-  --band-excellent: #2a78d6;
-  --band-good: #0ca30c;
+  --band-excellent: #0ca30c;
+  --band-good: #9acd32;
   --band-moderate: #fab219;
   --band-poor: #ec835a;
   --band-bad: #d03b3b;
@@ -106,8 +104,8 @@
     --color-on-accent-strong: #0b0b0b;
     --focus-ring: #3987e5;
 
-    --band-excellent: #3987e5;
-    --band-good: #0ca30c;
+    --band-excellent: #0ca30c;
+    --band-good: #9acd32;
     --band-moderate: #fab219;
     --band-poor: #ec835a;
     --band-bad: #d03b3b;
@@ -144,8 +142,8 @@
   --color-on-accent-strong: #0b0b0b;
   --focus-ring: #3987e5;
 
-  --band-excellent: #3987e5;
-  --band-good: #0ca30c;
+  --band-excellent: #0ca30c;
+  --band-good: #9acd32;
   --band-moderate: #fab219;
   --band-poor: #ec835a;
   --band-bad: #d03b3b;

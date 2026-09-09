@@ -36,7 +36,7 @@ export default function ParameterCard({ parameter, band, compact = false, overvi
         <p className="text-sm text-muted mt-0">
           {numeric === 0
             ? 'Not being measured at the moment.'
-            : `Only ${numeric} reading${numeric === 1 ? '' : 's'} so far — ${
+            : `Only ${numeric} reading${numeric === 1 ? '' : 's'} so far, ${
                 overview.band_withheld_reason || 'not enough to grade the river'
               }.`}
         </p>
@@ -44,8 +44,8 @@ export default function ParameterCard({ parameter, band, compact = false, overvi
       {!banded && (
         <p className="text-sm text-muted mt-0">
           {parameter.typical_range
-            ? `No WFD band — used as a sanity check. Typical range here is ${parameter.typical_range.low}–${parameter.typical_range.high} ${parameter.unit}.`
-            : 'No WFD band — this is context for the other readings, not a pass or fail measure.'}
+            ? `There is no WFD band for ${parameter.label.toLowerCase()}. Readings are compared against the typical range for this river, ${parameter.typical_range.low} to ${parameter.typical_range.high} ${parameter.unit}.`
+            : 'No WFD band; this is context for the other readings, not a pass or fail measure.'}
         </p>
       )}
       <p>{parameter.one_liner}</p>

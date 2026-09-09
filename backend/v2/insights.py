@@ -73,10 +73,10 @@ _round = round
 
 
 def round_dp(parameter: str) -> int:
-    """Rounding precision per the build spec: 3dp for mg/L parameters,
+    """Rounding precision per the build spec: 3dp for ppm parameters,
     1dp for NTU / µS/cm / cm."""
     unit = PARAMETERS[parameter]["unit"]
-    return 3 if unit == "mg/L" else 1
+    return 3 if unit == "ppm" else 1
 
 
 def readings(
@@ -344,7 +344,7 @@ def _build_caveats(qualifiers: dict) -> list[str]:
     n = qualifiers.get("band_range", 0)
     if n:
         caveats.append(
-            f"{n} reading(s) came from a test-strip colour band rather than a precise reading — "
+            f"{n} reading(s) came from a test-strip colour band rather than a precise reading: "
             f"the figure shown is an estimate within that band, not an exact measurement."
         )
     return caveats
@@ -963,22 +963,25 @@ def resolve_review_item(
     item_id: int,
     status: str,
     resolved_value: str | None = None,
+    kind: str | None = None,
     note: str | None = None,
     resolved_by: str | None = None,
 ) -> dict:
     """Resolve one `review_queue` item as `accepted` or `rejected`.
 
-    On `accepted`, writes (or replaces) a `manual_corrections` row for
-    that reading — `resolved_value` if given, otherwise the queue item's
-    own `suggestion` (accepting IS choosing the suggestion, unless the
-    caller explicitly overrides it). Raises `ValueError` if the item
-    doesn't exist, and `LookupError` if `status='accepted'` is requested
-    with nothing to apply (`resolved_value` and `suggestion` both empty)
-    — never applies a guess.
+    On `accepted`, writes a `review_decisions` row for that reading —
+    `resolved_value` if given, otherwise the queue item's own `suggestion`
+    (accepting IS choosing the suggestion, unless the caller explicitly
+    overrides it). `kind` is one of value|not_measured|category|remove|
+    merge; it defaults to 'merge' for ambiguous_location items and 'value'
+    otherwise. Raises `ValueError` if the item doesn't exist, and
+    `LookupError` if a value-like acceptance is requested with nothing to
+    apply (`resolved_value` and `suggestion` both empty) — never applies
+    a guess.
 
     This never writes to `measurements`. The correction takes effect the
-    next time `v2/cleaning.py` runs `--refresh` (owned separately),
-    logging a `cleaning_log` row with `action='manual_correction'`.
+    next time `v2/ingest.py` runs `--refresh` (owned separately), logging
+    a `cleaning_log` row with the matching action.
     """
     if status not in ("accepted", "rejected"):
         raise ValueError(f"invalid status: {status!r} (must be 'accepted' or 'rejected')")
@@ -992,17 +995,18 @@ def resolve_review_item(
     try:
         if status == "accepted":
             value_to_apply = resolved_value if resolved_value is not None else item["suggestion"]
-            if not value_to_apply:
+            decision_kind = kind or ("merge" if item["issue"] == "ambiguous_location" else "value")
+            if decision_kind == "value" and not value_to_apply:
                 raise LookupError(
                     "cannot accept: no resolved_value was given and this item has no suggestion "
                     "to fall back on"
                 )
             conn.execute(
-                "INSERT INTO manual_corrections (ec5_uuid, parameter, value, note, created_at) "
-                "VALUES (?, ?, ?, ?, ?) "
-                "ON CONFLICT(ec5_uuid, parameter) DO UPDATE SET value=excluded.value, "
-                "note=excluded.note, created_at=excluded.created_at",
-                (item["ec5_uuid"], item["parameter"], value_to_apply, note, now),
+                "INSERT INTO review_decisions (ec5_uuid, parameter, value_raw, issue, kind, "
+                "resolved_value, note, resolved_at, resolved_by) VALUES (?,?,?,?,?,?,?,?,?)",
+                (item["ec5_uuid"], item["parameter"], item["value_raw"], item["issue"],
+                 decision_kind, value_to_apply,
+                 note or f"accepted from review queue ({item['issue']})", now, resolved_by),
             )
             conn.execute(
                 "UPDATE review_queue SET status=?, resolved_value=?, resolved_at=?, resolved_by=? WHERE id=?",

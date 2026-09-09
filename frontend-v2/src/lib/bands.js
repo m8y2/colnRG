@@ -1,6 +1,6 @@
 // WFD band names, colours, shape glyphs and generic plain-English glosses.
 //
-// Deliberately does NOT hardcode the numeric thresholds (0.1mg/L phosphate,
+// Deliberately does NOT hardcode the numeric thresholds (0.1ppm phosphate,
 // etc.) — those are the backend's job (`v2/wfd.py`) and come from
 // `GET /api/v2/parameters` as each parameter's `bands` + `direction`
 // ("lower_better" | "higher_better" | null). Baking a second copy of that
@@ -26,11 +26,11 @@ export const BAND_ORDER = ['Excellent', 'Good', 'Moderate', 'Poor', 'Bad'];
 // A distinct shape per band so meaning survives colour-blindness and
 // greyscale printing — never rely on colour alone.
 export const BAND_GLYPH = {
-  High: '▲',      // ▲ triangle up
-  Good: '●',      // ● filled circle
-  Moderate: '◆',  // ◆ diamond
-  Poor: '▼',      // ▼ triangle down
-  Bad: '✕',       // ✕ cross
+  Excellent: '▲',   // ▲ triangle up
+  Good: '●',        // ● filled circle
+  Moderate: '◆',    // ◆ diamond
+  Poor: '▼',        // ▼ triangle down
+  Bad: '✕',         // ✕ cross
 };
 
 export const BAND_CSS_VAR = {
@@ -45,8 +45,8 @@ export const BAND_CSS_VAR = {
 // Text colour to put ON a solid band-colour fill (band-pill) so it always
 // clears large-text contrast, chosen per band rather than assumed white.
 export const BAND_TEXT_ON_FILL = {
-  High: '#ffffff',
-  Good: '#ffffff',
+  Excellent: '#ffffff',
+  Good: '#1a2b22',
   Moderate: '#3a2600',
   Poor: '#3a1400',
   Bad: '#ffffff',
@@ -54,7 +54,7 @@ export const BAND_TEXT_ON_FILL = {
 
 // Higher = worse, for picking the single worst band across several
 // parameters (e.g. colouring a map marker).
-const SEVERITY = { High: 0, Good: 1, Moderate: 2, Poor: 3, Bad: 4 };
+const SEVERITY = { Excellent: 0, Good: 1, Moderate: 2, Poor: 3, Bad: 4 };
 
 export function bandColorVar(band) {
   return `var(${BAND_CSS_VAR[band] || '--text-muted'})`;
@@ -130,8 +130,8 @@ export function bandZones(parameter, domainMax) {
   if (higher) {
     const ordered = hasBad ? ['Bad', 'Poor', 'Moderate', 'Good', 'Excellent'] : ['Poor', 'Moderate', 'Good', 'Excellent'];
     const upper = hasBad
-      ? { Bad: bounds.Poor, Poor: bounds.Moderate, Moderate: bounds.Good, Good: bounds.High, High: domainMax }
-      : { Poor: bounds.Moderate, Moderate: bounds.Good, Good: bounds.High, High: domainMax };
+      ? { Bad: bounds.Poor, Poor: bounds.Moderate, Moderate: bounds.Good, Good: bounds.Excellent, Excellent: domainMax }
+      : { Poor: bounds.Moderate, Moderate: bounds.Good, Good: bounds.Excellent, Excellent: domainMax };
     let prev = 0;
     const zones = [];
     for (const band of ordered) {
@@ -143,8 +143,8 @@ export function bandZones(parameter, domainMax) {
     return zones;
   }
 
-  // lower_better: High is the lowest zone, the worst reachable band is the
-  // open-ended top.
+  // lower_better: Excellent is the lowest zone, the worst reachable band is
+  // the open-ended top.
   const steps = ['Excellent', 'Good', 'Moderate'];
   const zones = [];
   let prev = 0;

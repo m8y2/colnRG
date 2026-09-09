@@ -27,6 +27,12 @@ from v2.db import init_v2_db
 init_v2_db()
 app.include_router(v2_router)
 
+# Screen "photo not synced" placeholder images in the background (see
+# v2/photos.py) so the gallery only shows real photos.
+from v2.photos import start_validation_thread  # noqa: E402
+
+start_validation_thread()
+
 # The report endpoints (`v2/reports_api.py`) are owned by a separate
 # in-progress piece of work. Guard the import so `main_v2` works before
 # and after that module lands.

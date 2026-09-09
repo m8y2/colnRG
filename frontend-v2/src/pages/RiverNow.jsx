@@ -54,16 +54,16 @@ export default function RiverNow({ navigate }) {
 
       {status === 'ready' && (() => {
         const { overview, parameters, locations } = data;
-        const bandedParams = parameters.filter((p) => p.bands);
+        // Dissolved oxygen and conductivity are not part of the headline
+        // measures on this page (they are barely measured at all).
+        const hidden = new Set(['dissolved_oxygen', 'conductivity']);
+        const bandedParams = parameters.filter((p) => p.bands && !hidden.has(p.key));
         const headline = buildHeadline(overview.parameters, bandedParams);
         const nLocations = overview.n_locations ?? overview.n_sites ?? locations.length;
 
-        const mapLocations = locations.map((loc) => ({
-          w3w: loc.w3w,
-          latitude: loc.latitude,
-          longitude: loc.longitude,
-          bands: Object.fromEntries(bandedParams.map((p) => [p.key, loc.latest_bands?.[p.key]?.band ?? null])),
-        }));
+        // The map takes the locations straight from the API so its dots
+        // are coloured exactly like the map on "Your place".
+        const mapLocations = locations;
 
         return (
           <>
@@ -72,11 +72,11 @@ export default function RiverNow({ navigate }) {
               <p className="headline-card__meta">
                 Last sampled{' '}
                 {overview.most_recent_sample_date ? formatRelativeDate(overview.most_recent_sample_date) : 'date unknown'}
-                {' · '}
+                {', '}
                 {nLocations} locations on the river
                 {overview.n_usable !== undefined && (
                   <>
-                    {' · '}
+                    {', '}
                     <UsableCount nUsable={overview.n_usable} nExcluded={overview.n_excluded} /> counted in these figures
                   </>
                 )}

@@ -16,7 +16,7 @@ const SCOPES = [
 
 function trendTitle(parameterLabel, trend) {
   if (!trend || trend.status === 'insufficient_data') {
-    return `${parameterLabel} — not enough readings yet to see a trend`;
+    return `${parameterLabel}: not enough readings yet to see a trend`;
   }
   if (trend.direction === 'improving') return `${parameterLabel} has been getting better`;
   if (trend.direction === 'worsening') return `${parameterLabel} has been getting worse`;
@@ -44,7 +44,7 @@ export default function OverTime() {
   const seriesDeps = [parameterKey, scope, effectiveLocation];
   const { status: seriesStatus, data: seriesData, error: seriesError, reload: reloadSeries } = useApi(() => {
     if (scope === 'one-place') {
-      const calls = [api.getSeries({ parameter: parameterKey, location: effectiveLocation })];
+      const calls = [api.getSeries({ parameter: parameterKey, w3w: effectiveLocation })];
       if (effectiveLocation) calls.push(api.getLocation(effectiveLocation));
       return Promise.all(calls).then(([series, location]) => ({ series, location: location || null }));
     }
@@ -107,7 +107,7 @@ export default function OverTime() {
             label="Which place"
             value={effectiveLocation}
             onChange={(e) => setLocationW3w(e.target.value)}
-            options={orderedLocations.map((l) => ({ value: l.w3w, label: `${l.river_order ?? '—'} — ${l.w3w}` }))}
+            options={orderedLocations.map((l, i) => ({ value: l.w3w, label: `#${i + 1} ${l.w3w}` }))}
           />
         )}
       </div>
@@ -122,7 +122,7 @@ export default function OverTime() {
           footnote={`${parameter.label} is measured in ${spelledOutUnit(parameter.unit)}.`}
           table={
             <DataTable
-              caption={`${title} — every reading behind this chart`}
+              caption={`${title}: every reading behind this chart`}
               columns={[
                 { key: 'date', label: 'Date', render: (r) => formatDate(r.date) },
                 { key: 'reading', label: 'Reading' },

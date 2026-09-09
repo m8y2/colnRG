@@ -86,7 +86,11 @@ export default function TimeSeriesChart({ points, parameter }) {
 
   const dataMax = numericPoints.length ? Math.max(...numericPoints.map((p) => p.value)) : 0;
   const boundMax = banded
-    ? (parameter.direction === 'higher_better' ? (parameter.bands.High ?? dataMax) : (parameter.bands.Poor ?? dataMax))
+    ? (parameter.direction === 'higher_better'
+      ? (parameter.bands.Excellent ?? dataMax)
+      // The last closed threshold is the top of the graded scale for
+      // lower-better parameters; the worst band is open-ended above it.
+      : (Math.max(...Object.values(parameter.bands)) ?? dataMax))
     : dataMax;
   const domainMax = Math.max(dataMax * 1.15, boundMax * 1.25, boundMax + 1, 1);
   const zones = banded ? bandZones(parameter, domainMax) : [];
@@ -105,7 +109,7 @@ export default function TimeSeriesChart({ points, parameter }) {
     const band = banded ? classifyBand(only.value, parameter) : null;
     return (
       <p className="text-secondary">
-        There is only one reading so far — not enough to draw a chart. It was{' '}
+        There is only one reading so far, not enough to draw a chart. It was{' '}
         <strong>{formatReading(only, unit)}</strong> on {formatDate(only.date)}
         {band ? <> ({band} band)</> : null}.
       </p>
@@ -191,7 +195,7 @@ export default function TimeSeriesChart({ points, parameter }) {
 
       {!hasEnoughForChart && numericPoints.length > 0 && (
         <p className="text-secondary">
-          Only {numericPoints.length} number{numericPoints.length === 1 ? '' : 's'} recorded here — not enough to draw a
+          Only {numericPoints.length} number{numericPoints.length === 1 ? '' : 's'} recorded here, not enough to draw a
           line yet. {numericPoints.map((p) => `${formatReading(p, unit)} (${formatDate(p.date)})`).join('; ')}.
         </p>
       )}
@@ -199,7 +203,7 @@ export default function TimeSeriesChart({ points, parameter }) {
       {writtenObservations.length > 0 && (
         <>
           <p className="observation-strip__caption">
-            Some visits recorded a written observation instead of a number (like &ldquo;cloudy&rdquo;) — these are marked
+            Some visits recorded a written observation instead of a number (like &ldquo;cloudy&rdquo;). Those are marked
             below by date, not plotted as values, because they were never converted into a number.
           </p>
           <div className="observation-strip">

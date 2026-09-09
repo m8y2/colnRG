@@ -69,6 +69,21 @@ def init_v2_db(db_path: str | None = None) -> None:
     """
     conn = get_connection(db_path)
     try:
+        # photo_cache gained a `modified` column after the table first
+        # shipped; older databases need it added, fresh ones have it in
+        # the CREATE below.
+        try:
+            conn.execute(
+                "ALTER TABLE photo_cache ADD COLUMN modified INTEGER NOT NULL DEFAULT 0"
+            )
+        except Exception:
+            pass  # already present
+        try:
+            conn.execute(
+                "ALTER TABLE photo_cache ADD COLUMN valid INTEGER NOT NULL DEFAULT 1"
+            )
+        except Exception:
+            pass  # already present
         conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS raw_entries (            -- exact API payload, NEVER mutated
@@ -158,6 +173,52 @@ def init_v2_db(db_path: str | None = None) -> None:
                 ec5_uuid TEXT NOT NULL, parameter TEXT NOT NULL,
                 value TEXT NOT NULL, note TEXT, created_at TEXT NOT NULL,
                 PRIMARY KEY (ec5_uuid, parameter)
+            );
+
+            -- The owner's decisions on review_queue items. Survives every
+            -- rebuild (unlike review_queue itself), and each kind is
+            -- applied during the rebuild with a cleaning_log row:
+            --   value        -> numeric reading applied to measurements
+            --   not_measured -> reading marked absent (usable=0)
+            --   category     -> ordinal category applied (value=NULL)
+            --   remove       -> the measurements row is deleted
+            --   merge        -> observations for `value_raw` (a what3words
+            --                   address) are moved to `resolved_value`
+            --                   (the canonical address) and the duplicate
+            --                   location row is dropped
+            -- Resolved items are NOT re-queued on rebuild.
+            CREATE TABLE IF NOT EXISTS review_decisions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ec5_uuid TEXT NOT NULL,
+                parameter TEXT,                 -- NULL for location merges
+                value_raw TEXT NOT NULL,
+                issue TEXT NOT NULL,
+                kind TEXT NOT NULL,             -- value|not_measured|category|remove|merge
+                resolved_value TEXT,
+                note TEXT,
+                resolved_at TEXT NOT NULL,
+                resolved_by TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_review_decisions_lookup
+                ON review_decisions(ec5_uuid, parameter);
+
+            -- Photo processing cache (see v2/photo_crop.py): which
+            -- original EpiCollect URL each processed photo came from, so
+            -- the media endpoint can process on demand. `modified` says
+            -- whether processing changed the photo (cropped or manually
+            -- rotated) — the demo build embeds those as data URIs so the
+            -- offline copy shows the corrected image too. `valid` says
+            -- the photo passed placeholder screening (0 = "photo not
+            -- synced" placeholder, never served). Both survive rebuilds
+            -- and are loaded at startup so a restart does not briefly
+            -- re-show known placeholders.
+            CREATE TABLE IF NOT EXISTS photo_cache (
+                sha TEXT PRIMARY KEY,
+                original_url TEXT NOT NULL,
+                processed_at TEXT NOT NULL,
+                modified INTEGER NOT NULL DEFAULT 0,
+                valid INTEGER NOT NULL DEFAULT 1
             );
 
             CREATE INDEX IF NOT EXISTS idx_observations_date ON observations(sample_date);

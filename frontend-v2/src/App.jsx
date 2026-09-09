@@ -4,6 +4,7 @@ import PrimaryNav from './components/PrimaryNav.jsx';
 import ThemeToggle from './components/ThemeToggle.jsx';
 import RiverNow from './pages/RiverNow.jsx';
 import YourPlace from './pages/YourPlace.jsx';
+import PhotoGallery from './pages/PhotoGallery.jsx';
 import OverTime from './pages/OverTime.jsx';
 import AlongTheRiver from './pages/AlongTheRiver.jsx';
 import Reports from './pages/Reports.jsx';
@@ -18,6 +19,7 @@ import AllData from './pages/AllData.jsx';
 const ROUTES = [
   { path: 'river-now', label: 'The river right now', Component: RiverNow },
   { path: 'your-place', label: 'Your place', Component: YourPlace },
+  { path: 'photos', label: 'Photo gallery', Component: PhotoGallery },
   { path: 'over-time', label: 'Change over time', Component: OverTime },
   { path: 'along-the-river', label: 'Along the river', Component: AlongTheRiver },
   { path: 'reports', label: 'Reports', Component: Reports },
@@ -74,7 +76,9 @@ export default function App() {
           <span>
             Water quality data collected by Coln River Guardians volunteers on the River Coln, Gloucestershire.
           </span>
-          <span>Site codes are volunteers&rsquo; initials, not place names.</span>
+          <span className="license-notice">
+            This website&rsquo;s use is under the GPL v3 license.
+          </span>
         </div>
       </footer>
     </div>

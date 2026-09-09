@@ -72,7 +72,7 @@ def to_markdown(report: dict, meta: dict) -> str:
     lines.append(f"# {report.get('headline', '')}")
     lines.append("")
     lines.append(
-        f"*{type_label} — {meta.get('report_key', '')} — for {audience_label} — "
+        f"*{type_label} · {meta.get('report_key', '')} · for {audience_label} · "
         f"generated {meta.get('generated_at', '')}*"
     )
     lines.append("")
@@ -93,7 +93,7 @@ def to_markdown(report: dict, meta: dict) -> str:
     lines.append("## Key findings")
     for finding in report.get("key_findings", []):
         sev = SEVERITY_LABELS.get(finding.get("severity"), finding.get("severity", ""))
-        lines.append(f"- **[{sev}] {finding.get('title', '')}** — {finding.get('detail', '')}")
+        lines.append(f"- **[{sev}] {finding.get('title', '')}**: {finding.get('detail', '')}")
     lines.append("")
 
     for section in report.get("sections", []):
@@ -119,7 +119,7 @@ def to_markdown(report: dict, meta: dict) -> str:
     if glossary:
         lines.append("## Glossary")
         for entry in glossary:
-            lines.append(f"- **{entry.get('term', '')}** — {entry.get('plain_meaning', '')}")
+            lines.append(f"- **{entry.get('term', '')}**: {entry.get('plain_meaning', '')}")
         lines.append("")
 
     if not verif["ok"]:

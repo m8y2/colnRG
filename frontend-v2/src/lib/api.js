@@ -46,7 +46,7 @@ async function request(path, { method = 'GET', params, body, headers, signal } =
     });
   } catch {
     throw new ApiError(
-      'Could not reach the river data service. Check your connection and try again.',
+      'Could not reach the river data. Check your connection and try again.',
       { url }
     );
   }
@@ -65,7 +65,7 @@ async function request(path, { method = 'GET', params, body, headers, signal } =
         : res.status === 401 || res.status === 403
           ? 'You are not allowed to do that.'
           : res.status >= 500
-            ? 'The river data service had a problem. Please try again shortly.'
+            ? 'The river data could not be loaded. Please try again shortly.'
             : 'Something went wrong fetching that data.';
     throw new ApiError(detail || friendly, { status: res.status, url });
   }
@@ -98,12 +98,20 @@ export function getLocation(w3w, opts) {
   return request(`/locations/${encodeURIComponent(w3w)}`, opts);
 }
 
+export function getPhotos(opts) {
+  return request('/photos', opts);
+}
+
 export function getSeries({ parameter, w3w, recorder, from, to } = {}, opts) {
   return request('/series', { ...opts, params: { parameter, w3w, recorder, from, to } });
 }
 
 export function getDownstream({ parameter, round } = {}, opts) {
   return request('/downstream', { ...opts, params: { parameter, round } });
+}
+
+export function getObservations({ w3w, from, to, page, per_page } = {}, opts) {
+  return request('/observations', { ...opts, params: { w3w, from, to, page, per_page } });
 }
 
 // ---- Review queue (a dozen or so ambiguous readings the cleaning

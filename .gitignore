@@ -28,3 +28,4 @@ frontend/src/assets/
 frontend/README.md
 frontend/test-vite.config.js
 frontend/public/icons.svg
+backend/media_cache/

@@ -70,9 +70,9 @@ def extract_prompt_meta(user_prompt: str) -> dict:
 # reprint this version as it stands.
 READER_GUIDANCE = (
     "Write for the volunteers who collect these samples and their neighbours along the "
-    "river — people with no scientific background. Aim for a reading age of about 12: "
+    "river: people with no scientific background. Aim for a reading age of about 12: "
     "short sentences, one idea per sentence, and a plain-English gloss the first time any "
-    "technical term appears (including WFD band names — see below). Avoid jargon from "
+    "technical term appears (including WFD band names, see below). Avoid jargon from "
     "water science unless it is glossed."
 )
 
@@ -82,7 +82,7 @@ READER_GUIDANCE = (
 
 REPORT_TYPE_GUIDANCE = {
     "location": (
-        "This report covers one sampling location — a what3words address — across its whole "
+        "This report covers one sampling location: a what3words address, across its whole "
         "sampling history. Describe where it sits on the river using its position between "
         "neighbouring locations, never using a volunteer's initials to describe a place. If the "
         "facts pack has no river position for this location (a handful of real locations are not "
@@ -102,7 +102,7 @@ REPORT_TYPE_GUIDANCE = {
         "of the catchment, per-parameter patterns across locations, and anything notable about "
         "coverage. State plainly if dissolved oxygen or conductivity are not currently being "
         "measured, rather than drawing a conclusion from the handful of readings that exist for "
-        "them. This is the broadest report type — keep the headline about the river as a whole, "
+        "them. This is the broadest report type; keep the headline about the river as a whole, "
         "not one location."
     ),
     "comparison": (
@@ -113,7 +113,7 @@ REPORT_TYPE_GUIDANCE = {
     "trend": (
         "This report covers the long-term direction of one measurement across the river. Use "
         "only the trend classifications already computed in the facts pack ('improving', "
-        "'worsening', 'no clear change', or 'insufficient_data') — never describe a trend more "
+        "'worsening', 'no clear change', or 'insufficient_data'); never describe a trend more "
         "confidently than the facts pack does."
     ),
     "data_quality": (
@@ -135,7 +135,7 @@ REPORT_TYPE_GUIDANCE = {
 _RULES = [
     (
         "Every figure in this report has to come from the facts pack below, which is computed "
-        "directly from the volunteers' data — there is no other measurement available, and "
+        "directly from the volunteers' data; there is no other measurement available, and "
         "doing arithmetic by hand here is how errors get introduced."
     ),
     (
@@ -145,7 +145,7 @@ _RULES = [
     ),
     (
         "Do not name or imply blame for a landowner, farm, business or water company. A "
-        "handful of water samples cannot support that kind of claim — they measure the "
+        "handful of water samples cannot support that kind of claim; they measure the "
         "river's chemistry at a place and moment, not its cause."
     ),
     (
@@ -155,7 +155,7 @@ _RULES = [
     (
         "Do not give health or bathing-safety advice, such as whether it is safe to swim or "
         "drink the water. This scheme measures river chemistry, not bathing safety, so it "
-        "cannot support that judgement — say so if it feels relevant."
+        "cannot support that judgement; say so if it feels relevant."
     ),
     (
         "Write in the third person about the volunteers and the river; avoid \"we\", \"I\" or "
@@ -164,7 +164,7 @@ _RULES = [
     (
         "Only describe a trend as improving or worsening where the facts pack itself "
         "classifies it that way. Where it says 'no clear change' or 'insufficient_data', say "
-        "that plainly instead — a few noisy readings are not evidence of a real trend."
+        "that plainly instead; a few noisy readings are not evidence of a real trend."
     ),
     (
         "Describe a location by its what3words address, never by the initials of the "
@@ -193,6 +193,10 @@ _RULES = [
         "used, and use British English and DD/MM/YYYY dates. Never refer to the reader as a "
         "\"user\"."
     ),
+    (
+        "Use plain punctuation: commas, full stops and short sentences. Do not use em dashes "
+        "or semicolon-heavy constructions in the report text."
+    ),
 ]
 
 
@@ -211,9 +215,9 @@ def _wfd_reference_block() -> str:
     lines = [
         "## WFD reference bands",
         "Five bands, best to worst: Excellent, Good, Moderate, Poor, Bad. Say what a band means "
-        "for the river when it first appears in a report, rather than the band name alone — "
-        "trap for a reader who has not seen this scale before. Bands are meter readings only — "
-        "never apply them to a word-only (ordinal) observation.",
+        "for the river when it first appears in a report, rather than the band name alone; a "
+        "reader who has not seen this scale before would otherwise have to guess. Bands are "
+        "meter readings only; never apply them to a word-only (ordinal) observation.",
         "",
     ]
     for key in PARAMETER_ORDER:
@@ -221,28 +225,55 @@ def _wfd_reference_block() -> str:
         if not p.get("bands"):
             continue
         bounds = ", ".join(f"{band} {value}" for band, value in p["bands"].items())
-        lines.append(f"- {p['label']} ({p['unit']}, {p['direction']}): {bounds}")
+        tail = ""
+        if p.get("band_meanings", {}).get("Poor") and "Poor" not in p.get("bands", {}):
+            tail = " (the Poor band is open-ended beyond the last boundary)"
+        lines.append(f"- {p['label']} ({p['unit']}, {p['direction']}): {bounds}{tail}")
     lines.append("")
     lines.append(
-        "Conductivity and water depth have no WFD band — conductivity only has a typical "
+        "Conductivity and water depth have no WFD band: conductivity only has a typical "
         "range, and water depth is context, not a pollution measure."
     )
     return "\n".join(lines)
 
 
 def _parameter_glossary_block() -> str:
+    from v2.insights import usable_counts_by_parameter
+    from v2.wfd import NOT_CURRENTLY_MEASURED_THRESHOLD
+
+    counts = usable_counts_by_parameter()
     lines = ["## What each parameter means (for glossing on first use)"]
     for key in PARAMETER_ORDER:
         p = PARAMETERS[key]
         note = ""
-        if p.get("not_currently_measured"):
+        if counts.get(key, 0) < NOT_CURRENTLY_MEASURED_THRESHOLD:
             note = " The group does not currently have the kit to measure this, so there is very little data for it."
         lines.append(f"- **{p['label']}** ({p['unit']}): {p['one_liner']} {p['why_it_matters']}{note}")
     return "\n".join(lines)
 
 
-_WFD_REFERENCE_BLOCK = _wfd_reference_block()
-_PARAMETER_GLOSSARY_BLOCK = _parameter_glossary_block()
+# The WFD reference and parameter glossary depend on live reading counts
+# (the glossary marks parameters that are not currently being measured),
+# so they are built lazily at report time rather than at import time --
+# importing this module must never require the database to exist yet.
+_WFD_REFERENCE_BLOCK: str | None = None
+_PARAMETER_GLOSSARY_BLOCK: str | None = None
+
+
+def wfd_reference_block() -> str:
+    global _WFD_REFERENCE_BLOCK
+    if _WFD_REFERENCE_BLOCK is None:
+        _WFD_REFERENCE_BLOCK = _wfd_reference_block()
+    return _WFD_REFERENCE_BLOCK
+
+
+def parameter_glossary_block() -> str:
+    global _PARAMETER_GLOSSARY_BLOCK
+    if _PARAMETER_GLOSSARY_BLOCK is None:
+        _PARAMETER_GLOSSARY_BLOCK = _parameter_glossary_block()
+    return _PARAMETER_GLOSSARY_BLOCK
+
+
 _RULES_BLOCK = _rules_block()
 
 _ROLE_AND_CONTEXT = (
@@ -283,8 +314,8 @@ def build_system_prompt(report_type: str, audience: str) -> str:
         f"## Who this report is for\n{READER_GUIDANCE}",
         f"## What this report covers\n{type_guidance}",
         _RULES_BLOCK,
-        _WFD_REFERENCE_BLOCK,
-        _PARAMETER_GLOSSARY_BLOCK,
+        wfd_reference_block(),
+        parameter_glossary_block(),
         _OUTPUT_FORMAT_BLOCK,
     ])
 

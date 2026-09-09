@@ -113,7 +113,7 @@ def generate_json(system_prompt: str, user_prompt: str, schema: dict) -> dict:
         return _generate_via_mistral(system_prompt, user_prompt, schema)
 
     raise LLMError(
-        f"Unknown REPORT_LLM_PROVIDER {provider!r} — expected 'mistral', 'anthropic', or 'stub'."
+        f"Unknown REPORT_LLM_PROVIDER {provider!r}: expected 'mistral', 'anthropic', or 'stub'."
     )
 
 

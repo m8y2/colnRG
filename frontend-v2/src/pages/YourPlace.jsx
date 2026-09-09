@@ -1,13 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useApi } from '../lib/useApi.js';
 import * as api from '../lib/api.js';
 import { LoadingState, ErrorState, EmptyState } from '../components/AsyncState.jsx';
 import LocationMap from '../components/LocationMap.jsx';
 import LocationList from '../components/LocationList.jsx';
+import PhotoTile from '../components/PhotoTile.jsx';
+import PhotoLightbox from '../components/PhotoLightbox.jsx';
 import { BandChip } from '../components/BandChip.jsx';
 import Sparkline from '../components/Sparkline.jsx';
 import UsableCount from '../components/UsableCount.jsx';
-import { formatDate, formatReading, TOTAL_MAPPED_LOCATIONS } from '../lib/format.js';
+import { formatDate, formatReading } from '../lib/format.js';
 import { isBanded, classifyBand } from '../lib/bands.js';
 
 function trendWords(trend) {
@@ -17,22 +19,16 @@ function trendWords(trend) {
   return 'No clear change over time.';
 }
 
-function positionSentence(location, ordered) {
-  if (!location || location.river_order == null) return null;
-  const idx = ordered.findIndex((l) => l.w3w === location.w3w);
-  const upstream = idx > 0 ? ordered[idx - 1] : null;
-  const downstream = idx >= 0 && idx < ordered.length - 1 ? ordered[idx + 1] : null;
-  const parts = [`Point ${location.river_order} on the river, of ${TOTAL_MAPPED_LOCATIONS} mapped.`];
-  if (upstream || downstream) {
-    const bits = [];
-    if (upstream) bits.push(`downstream of ${upstream.w3w}`);
-    if (downstream) bits.push(`upstream of ${downstream.w3w}`);
-    parts.push(bits.join(', ') + '.');
-  }
-  return parts.join(' ');
+function positionSentence(location) {
+  if (!location) return null;
+  const rank = location.downstream_rank ?? null;
+  const total = location.n_locations_total ?? null;
+  if (rank == null || total == null) return null;
+  return `Point ${rank} of ${total} on the river.`;
 }
 
-function LocationDetail({ w3w, ordered }) {
+function LocationDetail({ w3w }) {
+  const [openPhotoUrl, setOpenPhotoUrl] = useState(null);
   const { status, data, error, reload } = useApi(
     () => Promise.all([api.getLocation(w3w), api.getParameters()]).then(([location, paramsResp]) => ({
       location,
@@ -46,7 +42,13 @@ function LocationDetail({ w3w, ordered }) {
 
   const { location, parameters } = data;
   const paramsByKey = Object.fromEntries(parameters.map((p) => [p.key, p]));
-  const stats = location.summary?.parameters || {};
+  // Dissolved oxygen and conductivity are not shown on location pages
+  // (or the home page or What we measure): they are barely measured, so
+  // a card for them mostly says "not measured here yet".
+  const hidden = new Set(['dissolved_oxygen', 'conductivity']);
+  const stats = Object.fromEntries(
+    Object.entries(location.summary?.parameters || {}).filter(([key]) => !hidden.has(key))
+  );
   const trends = location.trends || {};
   const nonNumeric = location.non_numeric_observations || [];
 
@@ -54,7 +56,7 @@ function LocationDetail({ w3w, ordered }) {
     <div className="stack" aria-live="polite">
       <div>
         <h2 style={{ marginBottom: 4 }}>{location.w3w}</h2>
-        <p className="text-secondary mt-0">{positionSentence(location, ordered)}</p>
+        <p className="text-secondary mt-0">{positionSentence(location)}</p>
         <p className="site-position">
           <span><strong>First sampled:</strong> {formatDate(location.summary?.first_sampled)}</span>
           <span><strong>Last sampled:</strong> {formatDate(location.summary?.last_sampled)}</span>
@@ -97,7 +99,7 @@ function LocationDetail({ w3w, ordered }) {
                 <p className="mt-0">
                   <strong>Usually {ordinal.modal_label?.toLowerCase()}</strong>
                   <span className="text-secondary">
-                    {' '}— from {ordinal.n_usable} written observation
+                    {', '}from {ordinal.n_usable} written observation
                     {ordinal.n_usable === 1 ? '' : 's'}, not a meter reading.
                   </span>
                 </p>
@@ -107,13 +109,13 @@ function LocationDetail({ w3w, ordered }) {
               {numeric.n_usable > 0 && (
                 <p className="text-sm text-secondary mt-0">
                   <UsableCount nUsable={numeric.n_usable} nExcluded={stat?.n_excluded} />
-                  {trendWords(trends[key]) ? ` · ${trendWords(trends[key])}` : ''}
+                  {trendWords(trends[key]) ? `. ${trendWords(trends[key])}` : ''}
                 </p>
               )}
               {notes.length > 0 && (
                 <p className="text-sm text-secondary">
                   Also recorded as {notes.map((n) => `“${n.value_raw}”`).join(', ')} on{' '}
-                  {notes.length === 1 ? 'one visit' : `${notes.length} visits`} — not shown as a number.
+                  {notes.length === 1 ? 'one visit' : `${notes.length} visits`}, not shown as a number.
                 </p>
               )}
             </div>
@@ -124,17 +126,32 @@ function LocationDetail({ w3w, ordered }) {
       {location.photos && location.photos.length > 0 && (
         <div>
           <h3>Photos from this spot</h3>
-          <div className="grid grid--3">
-            {location.photos.map((photo, i) => (
-              <figure key={photo.url + i} className="card card--tight" style={{ margin: 0 }}>
-                <img src={photo.url} alt={photo.description || `Photo taken at ${location.w3w}`} style={{ borderRadius: 'var(--radius-sm)', width: '100%' }} />
-                <figcaption className="text-sm text-secondary" style={{ marginTop: 4 }}>
-                  {formatDate(photo.date)}{photo.description ? ` — ${photo.description}` : ''}
-                </figcaption>
-              </figure>
+          <ul className="photo-grid" aria-label={`Photos taken at ${location.w3w}`}>
+            {location.photos.map((photo) => (
+              <PhotoTile
+                key={photo.url}
+                photo={{ ...photo, w3w: location.w3w }}
+                open={openPhotoUrl === photo.url}
+                overlay={false}
+                onToggle={() =>
+                  setOpenPhotoUrl((prev) => (prev === photo.url ? null : photo.url))
+                }
+              />
             ))}
-          </div>
+          </ul>
         </div>
+      )}
+
+      {openPhotoUrl && (
+        <PhotoLightbox
+          photo={{
+            url: openPhotoUrl,
+            w3w: location.w3w,
+            date: location.photos.find((p) => p.url === openPhotoUrl)?.date,
+            description: location.photos.find((p) => p.url === openPhotoUrl)?.description,
+          }}
+          onClose={() => setOpenPhotoUrl(null)}
+        />
       )}
     </div>
   );
@@ -157,8 +174,8 @@ export default function YourPlace({ routeParam, navigate }) {
       <div className="page-header">
         <h1>Your place</h1>
         <p className="lead">
-          Each location is a what3words address — a 3-metre square recorded by
-          volunteers once a month.
+          Each location here is a what3words address: a 3-metre square on the
+          riverbank. Volunteers sample it once a month.
         </p>
       </div>
 
@@ -179,7 +196,7 @@ export default function YourPlace({ routeParam, navigate }) {
           <hr style={{ border: 'none', borderTop: '1px solid var(--border-hairline)' }} />
 
           {selected ? (
-            <LocationDetail w3w={selected} ordered={ordered} />
+            <LocationDetail w3w={selected} />
           ) : (
             <EmptyState message="Choose a location above to see its readings." />
           )}

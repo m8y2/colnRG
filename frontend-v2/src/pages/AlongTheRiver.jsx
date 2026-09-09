@@ -61,8 +61,8 @@ export default function AlongTheRiver() {
 
   const chartStatus = status === 'loading' ? 'loading' : status === 'error' ? 'error' : numericPoints.length === 0 ? 'empty' : 'ready';
 
-  const tableRows = allPoints.map((p) => ({
-    order: p.river_order ?? '—',
+  const tableRows = allPoints.map((p, i) => ({
+    position: i + 1,
     w3w: p.w3w,
     reading: p.value !== null && p.value !== undefined
       ? formatReading(p, parameter?.unit)
@@ -75,8 +75,8 @@ export default function AlongTheRiver() {
       <div className="page-header">
         <h1>Along the river</h1>
         <p className="lead">
-          The River Coln from its source near Sevenhampton to where it joins the Thames at Lechlade, ordered as a
-          journey downstream — not by volunteer code.
+          The River Coln runs from its source near Sevenhampton to where it joins the
+          Thames at Lechlade. This page follows the river downstream, in that order.
         </p>
       </div>
 
@@ -108,9 +108,9 @@ export default function AlongTheRiver() {
           footnote="Bars are coloured by their own band. The two labelled bars are the highest and lowest readings; hover or use the table for every value."
           table={
             <DataTable
-              caption={`${title} — every location, source to Thames`}
+              caption="Every location on the river, source to Thames"
               columns={[
-                { key: 'order', label: 'Position', numeric: true },
+                { key: 'position', label: 'Position', numeric: true },
                 { key: 'w3w', label: 'Location (what3words)', wrap: true },
                 { key: 'reading', label: 'Reading' },
                 { key: 'band', label: 'Band' },
@@ -127,7 +127,7 @@ export default function AlongTheRiver() {
       {nonNumeric.length > 0 && (
         <p className="text-sm text-secondary">
           {nonNumeric.length} more location{nonNumeric.length === 1 ? '' : 's'} recorded a written observation (like
-          &ldquo;cloudy&rdquo;) instead of a number for {parameter?.label.toLowerCase()} — see the table above for what was
+          &ldquo;cloudy&rdquo;) instead of a number for {parameter?.label.toLowerCase()}; see the table above for what was
           written.
         </p>
       )}

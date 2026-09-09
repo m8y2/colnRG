@@ -72,10 +72,18 @@ export default function DownstreamChart({ points, parameter }) {
     () => (points || []).filter((p) => p.value !== null && p.value !== undefined),
     [points]
   );
+  // river_order is a REAL sort key, not a number to type in front of a
+  // reader ("point 38.92 on the river" says nothing). The axis shows the
+  // rank in the journey instead; the tooltip carries the what3words name.
+  const ranked = useMemo(() => sorted.map((p, i) => ({ ...p, rank: i + 1 })), [sorted]);
 
   const dataMax = sorted.length ? Math.max(...sorted.map((p) => p.value)) : 0;
   const boundMax = banded
-    ? (parameter.direction === 'higher_better' ? (parameter.bands.High ?? dataMax) : (parameter.bands.Poor ?? dataMax))
+    ? (parameter.direction === 'higher_better'
+      ? (parameter.bands.Excellent ?? dataMax)
+      // The last closed threshold is the top of the graded scale for
+      // lower-better parameters; the worst band is open-ended above it.
+      : (Math.max(...Object.values(parameter.bands)) ?? dataMax))
     : dataMax;
   const domainMax = Math.max(dataMax * 1.15, boundMax * 1.25, boundMax + 1, 1);
   const zones = banded ? bandZones(parameter, domainMax) : [];
@@ -101,7 +109,7 @@ export default function DownstreamChart({ points, parameter }) {
       <div style={{ width: `max(100%, ${minWidth}px)` }}>
         <div style={{ width: '100%', height: 380 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sorted} margin={{ top: 32, right: 16, bottom: 8, left: 4 }} barCategoryGap="20%">
+            <BarChart data={ranked} margin={{ top: 32, right: 16, bottom: 8, left: 4 }} barCategoryGap="20%">
               <CartesianGrid horizontal vertical={false} stroke="var(--gridline)" />
               {zones.map((zone) => (
                 <ReferenceArea
@@ -123,7 +131,7 @@ export default function DownstreamChart({ points, parameter }) {
                 />
               ))}
               <XAxis
-                dataKey="river_order"
+                dataKey="rank"
                 stroke="var(--baseline)"
                 tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
                 tickLine={false}

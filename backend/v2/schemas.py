@@ -154,8 +154,8 @@ EXAMPLE_REPORT = {
         {
             "title": "Phosphate has moved from Moderate to Good",
             "detail": (
-                "The latest phosphate reading was 0.18 mg/L, in the Good band, down from a mean "
-                "of 0.34 mg/L (Moderate band) across all readings at this location."
+                "The latest phosphate reading was 0.18 ppm, in the Good band, down from a mean "
+                "of 0.34 ppm (Moderate band) across all readings at this location."
             ),
             "severity": "good",
             "evidence_ids": [
@@ -164,9 +164,9 @@ EXAMPLE_REPORT = {
             ],
         },
         {
-            "title": "Ammonia has stayed in the High band throughout",
+            "title": "Ammonia has stayed in the Excellent band throughout",
             "detail": (
-                "Every usable ammonia reading at this location has stayed in the High band, the "
+                "Every usable ammonia reading at this location has stayed in the Excellent band, the "
                 "best band, across the full sampling history."
             ),
             "severity": "good",

@@ -73,7 +73,7 @@ PARAMETERS = {
     "phosphate": {
         "key": "phosphate",
         "label": "Phosphate",
-        "unit": "mg/L",
+        "unit": "ppm",
         "direction": "lower_better",
         "one_liner": "A nutrient. Too much feeds extra plant and algae growth.",
         "why_it_matters": (
@@ -87,8 +87,8 @@ PARAMETERS = {
             "and some household cleaning products."
         ),
         "unit_equivalence_note": (
-            "A few readings were written in parts per million (ppm) rather than milligrams "
-            "per litre (mg/L). In water this dilute the two are the same number, so they are "
+            "The kit reads in parts per million (ppm). In water this dilute, ppm and "
+            "milligrams per litre (mg/L) are the same number, so either spelling is "
             "treated as equal."
         ),
         "bands": {"Excellent": 0.1, "Good": 0.2, "Moderate": 0.4, "Poor": 0.7},
@@ -103,7 +103,7 @@ PARAMETERS = {
     "ammonia": {
         "key": "ammonia",
         "label": "Ammonia",
-        "unit": "mg/L",
+        "unit": "ppm",
         "direction": "lower_better",
         "one_liner": "A waste chemical. High levels are harmful to fish and insects.",
         "why_it_matters": (
@@ -116,8 +116,8 @@ PARAMETERS = {
             "especially after rain."
         ),
         "unit_equivalence_note": (
-            "A few readings were written in parts per million (ppm) rather than milligrams "
-            "per litre (mg/L). In water this dilute the two are the same number, so they are "
+            "The kit reads in parts per million (ppm). In water this dilute, ppm and "
+            "milligrams per litre (mg/L) are the same number, so either spelling is "
             "treated as equal."
         ),
         "bands": {"Excellent": 0.3, "Good": 0.6, "Moderate": 1.1, "Poor": 2.5},
@@ -132,12 +132,12 @@ PARAMETERS = {
     "nitrate": {
         "key": "nitrate",
         "label": "Nitrate",
-        "unit": "mg/L",
+        "unit": "ppm",
         "direction": "lower_better",
         "one_liner": "Another nutrient. Like phosphate, too much overfeeds plant growth.",
         "why_it_matters": (
-            "Nitrate is a nutrient plants need in small amounts, but — like "
-            "phosphate — too much overfeeds algae and weeds. It is usually "
+            "Nitrate is a nutrient plants need in small amounts, but, like "
+            "phosphate, too much overfeeds algae and weeds. It is usually "
             "less immediately harmful to river animals than ammonia, but "
             "still tips the balance towards excess plant growth."
         ),
@@ -145,8 +145,8 @@ PARAMETERS = {
             "Fertiliser and manure washed off farmland, and treated sewage."
         ),
         "unit_equivalence_note": (
-            "A few readings were written in parts per million (ppm) rather than milligrams "
-            "per litre (mg/L). In water this dilute the two are the same number, so they are "
+            "The kit reads in parts per million (ppm). In water this dilute, ppm and "
+            "milligrams per litre (mg/L) are the same number, so either spelling is "
             "treated as equal."
         ),
         "bands": {"Excellent": 5.6, "Good": 11.3, "Moderate": 16.9, "Poor": 22.6},
@@ -171,14 +171,14 @@ PARAMETERS = {
             "river, so low readings can mean life is struggling to breathe."
         ),
         "where_from": (
-            "Not a pollutant itself — low readings are usually a knock-on "
+            "Not a pollutant itself; low readings are usually a knock-on "
             "effect of warm weather, still water, or something else in the "
             "river using up oxygen as it decomposes."
         ),
-        # Poor ("<4") is already open-ended in the source reference table,
-        # so there is no further "Bad" band for this parameter — see the
-        # module docstring.
-        "bands": {"Excellent": 7, "Good": 5, "Moderate": 4, "Poor": 4},
+        # Poor ("<4") is open-ended in the source reference table, so there
+        # is no "Bad" band for this parameter, and no further threshold to
+        # store: the dict holds only real boundaries between bands.
+        "bands": {"Excellent": 7, "Good": 5, "Moderate": 4},
         "band_meanings": {
             "Excellent": "Plenty of oxygen for fish and insects.",
             "Good": "A healthy amount of oxygen for fish and insects.",
@@ -208,10 +208,10 @@ PARAMETERS = {
             "separate: words are never turned into a number, and numbers are never turned into "
             "words."
         ),
-        # Poor ("≥20") is already open-ended in the source reference table,
-        # so there is no further "Bad" band for this parameter — see the
-        # module docstring.
-        "bands": {"Excellent": 5, "Good": 10, "Moderate": 20, "Poor": 20},
+        # Poor (">20") is open-ended in the source reference table, so there
+        # is no "Bad" band for this parameter, and no further threshold to
+        # store: the dict holds only real boundaries between bands.
+        "bands": {"Excellent": 5, "Good": 10, "Moderate": 20},
         "band_meanings": {
             "Excellent": "The water is close to clear.",
             "Good": "The water is a little cloudy, but light and gills are not badly affected.",
@@ -224,12 +224,12 @@ PARAMETERS = {
         "label": "Conductivity",
         "unit": "µS/cm",
         "direction": None,
-        "one_liner": "How well the water conducts electricity — a proxy for dissolved minerals and salts.",
+        "one_liner": "How well the water conducts electricity: a proxy for dissolved minerals and salts.",
         "why_it_matters": (
             "Conductivity rises with the amount of dissolved minerals and "
             "salts in the water. It has no WFD band because there is no "
-            "single 'good' number — it naturally varies with the geology "
-            "the water has passed through — but a reading well outside the "
+            "single 'good' number; it naturally varies with the geology "
+            "the water has passed through. But a reading well outside the "
             "usual range for this river can be a useful early clue that "
             "something has changed."
         ),
@@ -246,14 +246,21 @@ PARAMETERS = {
         "label": "Water depth",
         "unit": "cm",
         "direction": None,
-        "one_liner": "How deep the water is at the sampling point, in centimetres.",
+        "one_liner": (
+            "How deep the water is at the sampling point, in centimetres. "
+            "This is affected by rainfall, the season, and how far downstream "
+            "the site is."
+        ),
         "why_it_matters": (
-            "Depth is not a measure of pollution — it is context for the "
+            "Depth is not a measure of pollution; it is context for the "
             "other readings. A shallower river dilutes pollution less and "
             "reacts faster to rain, so depth helps explain why a reading "
             "might look different from one visit to the next."
         ),
-        "where_from": "Rainfall, the season, and how far downstream the site is.",
+        # Water depth's word-scale observations (Low, Normal, ...) are not
+        # explained on the What we measure page — the section's wording is
+        # about turbidity, and depth's own scale is self-explanatory.
+        "show_ordinal_section": False,
         "recorded_as_note": (
             "Many readings are a word like 'Low' or 'Normal' rather than a number in "
             "centimetres. Both are shown, kept separate."

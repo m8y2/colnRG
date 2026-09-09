@@ -8,8 +8,9 @@
 export const TOTAL_MAPPED_LOCATIONS = 48;
 
 // Decimal places per parameter, matching the backend's rounding rules
-// (3dp for mg/L parameters, 1dp for NTU / µS/cm / cm).
+// (3dp for ppm parameters, 1dp for NTU / µS/cm / cm).
 const DECIMALS_BY_UNIT = {
+  ppm: 3,
   'mg/L': 3,
   NTU: 1,
   'µS/cm': 1,
@@ -23,11 +24,15 @@ export function decimalsForUnit(unit) {
 export function formatValue(value, unit) {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';
   const dp = decimalsForUnit(unit);
-  return Number(value).toFixed(dp);
+  const fixed = Number(value).toFixed(dp);
+  // Kit readings are paper-accuracy: strip the noise of trailing zeros,
+  // so 10.000 reads as 10 and 0.130 reads as 0.13.
+  return fixed.replace(/\.?0+$/, '');
 }
 
 // Full unit name spelled out once, for axis labels and first mentions.
 const UNIT_NAMES = {
+  ppm: 'parts per million',
   'mg/L': 'milligrams per litre',
   NTU: 'nephelometric turbidity units',
   'µS/cm': 'microsiemens per centimetre',
@@ -38,11 +43,11 @@ export function unitLongName(unit) {
   return UNIT_NAMES[unit] || unit;
 }
 
-// "Phosphate (mg/L — milligrams per litre)"
+// "Phosphate (ppm, parts per million)"
 export function spelledOutUnit(unit) {
   if (!unit) return '';
   const long = UNIT_NAMES[unit];
-  return long ? `${unit} — ${long}` : unit;
+  return long ? `${unit} (${long})` : unit;
 }
 
 export function formatValueWithUnit(value, unit) {
@@ -51,14 +56,38 @@ export function formatValueWithUnit(value, unit) {
   return `${v} ${unit}`;
 }
 
+// The reading as a table cell should show it: the number (with a "<", "~"
+// or range marker where the qualifier says the reading was approximate),
+// the word for an ordinal category, or the volunteer's own words. The
+// unit is the column header's job, so it is never included here.
+export function formatReadingText(point, parameter) {
+  if (!point) return '—';
+  const val = point.value ?? undefined;
+  if (val != null) {
+    const num = formatValue(val, parameter?.unit);
+    if (num === '—') return '—';
+    if (point.qualifier === 'below_detection') return `< ${num}`;
+    if (point.qualifier === 'range_midpoint') return `~${num}`;
+    if (point.qualifier === 'band_range' && point.value_low != null && point.value_high != null) {
+      return `${formatValue(point.value_low, parameter?.unit)}–${formatValue(point.value_high, parameter?.unit)} (est ${num})`;
+    }
+    return num;
+  }
+  if (point.qualifier === 'ordinal' && point.category) {
+    const step = (parameter?.ordinal_scale || []).find((s) => s.category === point.category);
+    return step?.label || point.category.replace(/_/g, ' ');
+  }
+  return point.value_raw || '—';
+}
+
 // A measurement can be more than a plain number — see the addendum's
 // cleaning rules. `qualifier` says which case this is; these helpers turn
 // that into honest, plain-English wording rather than presenting every
 // number as an equally-precise exact reading.
 const QUALIFIER_NOTE = {
-  below_detection: 'upper bound — the test kit could only say "less than this"',
+  below_detection: 'upper bound: the test kit could only say "less than this"',
   range_midpoint: 'the midpoint of a range the test kit gave',
-  band_range: 'an estimate — the test strip only gave a range',
+  band_range: 'an estimate: the test strip only gave a range',
   zero_reported: 'recorded as none/nil',
 };
 
@@ -67,8 +96,8 @@ export function qualifierNote(qualifier) {
 }
 
 // The reading formatted with its qualifier made honest rather than hidden,
-// e.g. "< 0.02 mg/L" for a below-detection reading, "~0.150 mg/L" for a
-// range midpoint, "10–25 mg/L (est. 17.5)" for a test-strip band. Returns
+// e.g. "< 0.02 ppm" for a below-detection reading, "~0.150 ppm" for a
+// range midpoint, "10–25 ppm (est. 17.5)" for a test-strip band. Returns
 // null when there is no numeric value at all (an ordinal or free-text
 // observation — see `isWrittenObservation` / CategoryChart.jsx).
 export function formatReading(point, unit) {
