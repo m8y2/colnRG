@@ -29,3 +29,8 @@ frontend/README.md
 frontend/test-vite.config.js
 frontend/public/icons.svg
 backend/media_cache/
+*.db.pre-crg-backup
+*.db-wal
+*.db-shm
+*.db.pre-crg-backup-wal
+*.db.pre-crg-backup-shm

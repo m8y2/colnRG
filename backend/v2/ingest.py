@@ -31,6 +31,7 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from v2.cleaning import PARAMETERS, clean_value
+from v2 import crg_georef
 from v2.db import get_connection, init_v2_db
 from v2.locations import load_all_locations, load_supplement, resolve_w3w
 
@@ -679,6 +680,8 @@ def main() -> int:
     ap.add_argument("--fetch", action="store_true", help="re-fetch from EpiCollect first")
     ap.add_argument("--refresh", action="store_true", help="rebuild derived tables from stored raw")
     ap.add_argument("--from-file", help="load raw entries from a cached JSON file instead of the API")
+    ap.add_argument("--skip-crg", action="store_true",
+                    help="do not lay the owner's georeferenced backup over the rebuild")
     args = ap.parse_args()
 
     if not (args.fetch or args.refresh or args.from_file):
@@ -695,6 +698,18 @@ def main() -> int:
         print(f"Fetched {store_raw(conn, entries)} raw entries from EpiCollect")
 
     report(rebuild(conn))
+
+    # A rebuild empties the derived tables, so the georeferenced backup has to
+    # be laid over them again here. Without this, any later --refresh would
+    # silently drop the merge and put the mistyped positions back.
+    if not args.skip_crg:
+        stored = conn.execute("SELECT COUNT(*) AS n FROM crg_raw_entries").fetchone()["n"]
+        print()
+        if stored:
+            crg_georef.report(crg_georef.merge(conn))
+        else:
+            print("No georeferenced backup stored. Run "
+                  "`python -m backend.v2.crg_georef --fetch` to add it.")
 
     conn.close()
     return 0

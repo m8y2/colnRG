@@ -272,6 +272,27 @@ def init_v2_db(db_path: str | None = None) -> None:
         _ensure_columns(conn, "observations", {
             "w3w_raw": "TEXT",
         })
+        # The owner's georeferenced backup project, kept under the same
+        # contract as raw_entries: exactly as served, never mutated. It is a
+        # second source rather than a replacement -- see v2/crg_georef.py.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS crg_raw_entries (        -- georeferenced backup, NEVER mutated
+                ec5_uuid TEXT PRIMARY KEY,
+                created_at TEXT, uploaded_at TEXT,
+                fetched_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL
+            );
+            """
+        )
+        # Which source a sample came from, and its row in the backup:
+        #   matched        in both, backup wins on position and readings
+        #   original_only  the backup does not contain this sample
+        #   crg_only       the backup has it and the original does not
+        _ensure_columns(conn, "observations", {
+            "crg_uuid": "TEXT",
+            "crg_status": "TEXT",
+        })
         conn.commit()
     finally:
         conn.close()
