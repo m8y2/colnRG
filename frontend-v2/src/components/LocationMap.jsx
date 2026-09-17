@@ -72,7 +72,21 @@ export default function LocationMap({ locations, onSelectLocation, selected }) {
     // tiles are silently blocked by the browser there and the map is just
     // empty. CartoDB's own basemap tiles are themselves built from OSM
     // data, so the attribution credits both.
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    //
+    // CARTO started requiring a free API key on these tiles in August
+    // 2026 (docs.carto.com/faqs/carto-basemaps); without one the tile
+    // still loads but has "API KEY REQUIRED" burned across it. Set
+    // VITE_CARTO_API_KEY (see .env.example) and rebuild to switch to the
+    // keyed, watermark-free endpoint -- it's a different path
+    // (rastertiles/light_all, not light_all) as well as a ?key= param,
+    // both required together. The key is meant to be public: CARTO's own
+    // free tier is designed to be embedded in client-side code like this
+    // and rate-limits by key, not by keeping it secret.
+    const cartoKey = import.meta.env.VITE_CARTO_API_KEY;
+    const tileUrl = cartoKey
+      ? `https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png?key=${cartoKey}`
+      : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+    L.tileLayer(tileUrl, {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com">CARTO</a>',
       maxZoom: 18,
     }).addTo(map);

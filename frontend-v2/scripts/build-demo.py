@@ -256,8 +256,13 @@ def embed_static_files(js: str) -> str:
     there to read and re-embed as a data: URI, no network round-trip
     needed."""
     for suffix, mime in MIME_BY_SUFFIX.items():
-        for match in set(re.findall(rf"/new/[A-Za-z0-9_./-]+\{suffix}", js)):
-            asset = DIST / match.removeprefix("/new/")
+        # Not anchored to a particular base path (the site has moved
+        # between "/" and "/new/" already) -- any absolute path is a
+        # candidate, and the disk check below is what actually decides
+        # whether it is a real asset, so a stray match that isn't one is
+        # harmless.
+        for match in set(re.findall(rf"/[A-Za-z0-9_./-]+\{suffix}", js)):
+            asset = DIST / match.lstrip("/")
             if not asset.is_file():
                 continue
             data_uri = f"data:{mime};base64," + base64.b64encode(asset.read_bytes()).decode()

@@ -1,54 +1,53 @@
-# Serving the new site alongside the live v1 site at colnrg.app/new.
+# v2 as the main site at colnrg.app.
 #
 # This is an EXAMPLE, not the live config. The live file is
 # /etc/nginx/sites-enabled/coln-dashboard on the droplet; see MIGRATION.md,
 # which is the source of truth for the Sectigo cert, the :80 -> :443
-# redirect and the security headers. Add the two blocks below to it rather
-# than replacing it -- replacing it loses HTTPS.
+# redirect and the security headers.
 #
-# v1 keeps / and /api. The new site gets /new and /api/v2 -- /api/v2 is the
-# backend's own version namespace, unrelated to the front-end path, so it
-# is not renamed alongside it. Both are served by the same uvicorn process
-# once it runs main_v2:app instead of main:app, so there is no second
-# backend to supervise.
-
-location = /new {
-    return 301 /new/;
-}
-
-# The new front end (frontend-v2/). Built with base '/new/', so its asset
-# URLs already carry the prefix. ^~ stops nginx falling through to a
-# site-wide regex location (e.g. one caching *.js/*.css against v1's root)
-# for anything under here.
+# History: v2 first went live alongside v1 at /new, v1 staying at /. The
+# owner then asked for v2 to be the main site and v1 retired, so this is
+# simpler than that first version was -- just point `root` at v2's build
+# instead of v1's. v1's files are left in place on the droplet
+# (/opt/coln-dashboard/frontend/dist), not deleted, just not referenced by
+# this config any more. The backend is unaffected either way: main_v2:app
+# has always served both /api and /api/v2 from one process.
 #
-# Deliberately ONE location, not this one plus a nested regex location for
-# long-cache headers on the hashed assets: `alias` inside a regex location
-# needs an explicit capture group to build the file path, and without one
-# nginx guesses at whether e.g. assets/foo.js might be a directory and
-# 301-redirects to add a trailing slash -- breaking every asset and the
-# report PDF. Verified against the live site on first deploy (2026-09-17).
-# A correct capture-group version could restore per-asset cache headers if
-# it's ever worth the complexity; this trades that for reliably correct.
+# Only the `root` line and the addition of a /new redirect (for anyone who
+# still has the old link) change from a plain v1 config. Everything else
+# below -- the API proxying, the asset-cache regex, the SPA fallback -- was
+# already generic to whatever `root` points at.
+
+root /opt/coln-dashboard/frontend-v2/dist;
+
+# Courtesy redirect for the /new link that was live before v2 became the
+# main site (e.g. anyone who clicked the old v1 banner).
 location ^~ /new/ {
-    alias /opt/coln-dashboard/frontend-v2/dist/;
-    try_files $uri $uri/ /new/index.html;
+    return 301 /;
+}
+location = /new {
+    return 301 /;
 }
 
-# /api/v2 is handled by the same FastAPI app as /api, so this only exists
-# to be explicit. On the live config as of 2026-09, `location /api/` already
-# proxies everything under /api with no further prefix matching, so this
-# block is redundant there -- check the existing /api block before adding
-# it elsewhere.
-location /api/v2/ {
+location /api/ {
+    limit_req zone=api burst=10 nodelay;
     proxy_pass http://127.0.0.1:8000;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 30s;
+    proxy_send_timeout 30s;
+}
 
-    # Generous rather than tight: the report-generation endpoint (now
-    # unused by the site itself, which shows a static PDF instead -- see
-    # frontend-v2/src/pages/Reports.jsx) can still take 30-90s if called
-    # directly, and the default 60s proxy_read_timeout would cut it off.
-    proxy_read_timeout 180s;
+location / {
+    include /etc/nginx/security-headers.conf;
+    try_files $uri $uri/ /index.html;
+    add_header Cache-Control "public, max-age=3600";
+}
+
+location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?|pdf)$ {
+    include /etc/nginx/security-headers.conf;
+    expires 1y;
+    add_header Cache-Control "public, immutable";
 }

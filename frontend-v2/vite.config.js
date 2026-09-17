@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/new/',
+  base: '/',
   esbuild: { jsx: 'automatic' },
   server: {
     port: 5174,
