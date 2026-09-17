@@ -29,7 +29,13 @@ location = /new {
     return 301 /;
 }
 
-location /api/ {
+# ^~ : anything under /api/ must reach the backend proxy even when it
+# ends in an extension the regex location below would otherwise claim
+# first (e.g. /api/v2/media/<sha>.jpg, the photo gallery's own route) --
+# without ^~ here, nginx's longest-prefix-then-regex rule lets that
+# regex win and the request 404s against the static root instead of
+# being proxied. Found live, serving the photo gallery, 2026-09-17.
+location ^~ /api/ {
     limit_req zone=api burst=10 nodelay;
     proxy_pass http://127.0.0.1:8000;
     proxy_set_header Host $host;
