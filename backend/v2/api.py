@@ -603,6 +603,22 @@ def get_data_quality():
 
 EXPORT_HEADER = ["w3w", "recorder", "date", "time", "parameter", "value", "qualifier", "unit", "band"]
 
+# `recorder` is volunteer-typed free text (see v2/ingest.py extract_recorder),
+# unlike every other exported field, which comes from a controlled
+# vocabulary or a number. A cell starting with =, +, -, @, tab or CR is a
+# live formula to Excel, LibreOffice and Google Sheets when the file is
+# opened -- CWE-1236 -- so anything reaching a spreadsheet export gets this
+# guard, on principle, even though today only `recorder` can actually carry
+# such a value. A leading apostrophe is the spreadsheet-native way to say
+# "this cell is text", and every reader already strips it back off.
+_FORMULA_LEAD = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _defuse_formula(value):
+    if isinstance(value, str) and value.startswith(_FORMULA_LEAD):
+        return "'" + value
+    return value
+
 
 def _export_rows(
     w3w: str | None, parameter: str | None, recorder: str | None,
@@ -613,7 +629,8 @@ def _export_rows(
         unit = PARAMETERS[p]["unit"]
         for r in readings(w3w=w3w, parameter=p, date_from=date_from, date_to=date_to, recorder=recorder):
             yield [
-                r["w3w"] or "", r["recorder"] or "", r["date"], r["time"], p,
+                _defuse_formula(r["w3w"] or ""), _defuse_formula(r["recorder"] or ""),
+                r["date"], r["time"], p,
                 r["value"], r["qualifier"], unit, classify_band(p, r["value"]) or "",
             ]
 

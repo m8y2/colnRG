@@ -1,15 +1,24 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import SkipLink from './components/SkipLink.jsx';
 import PrimaryNav from './components/PrimaryNav.jsx';
 import ThemeToggle from './components/ThemeToggle.jsx';
-import RiverNow from './pages/RiverNow.jsx';
-import YourPlace from './pages/YourPlace.jsx';
-import PhotoGallery from './pages/PhotoGallery.jsx';
-import OverTime from './pages/OverTime.jsx';
-import AlongTheRiver from './pages/AlongTheRiver.jsx';
-import Reports from './pages/Reports.jsx';
-import WhatWeMeasure from './pages/WhatWeMeasure.jsx';
-import AllData from './pages/AllData.jsx';
+import { LoadingState } from './components/AsyncState.jsx';
+
+// Lazy, one chunk per page: the bundle was one 793 kB file that every
+// page paid for on first load, Recharts and Leaflet included, even to
+// show the Reports page's static PDF. Route-based code splitting means a
+// visitor only downloads the page they actually asked for; v1 already
+// does this per-component (see frontend/src/App.jsx) -- this is the same
+// idea applied per-route instead, which is the coarser, simpler version
+// that fits this app's one-component-per-page structure.
+const RiverNow = lazy(() => import('./pages/RiverNow.jsx'));
+const YourPlace = lazy(() => import('./pages/YourPlace.jsx'));
+const PhotoGallery = lazy(() => import('./pages/PhotoGallery.jsx'));
+const OverTime = lazy(() => import('./pages/OverTime.jsx'));
+const AlongTheRiver = lazy(() => import('./pages/AlongTheRiver.jsx'));
+const Reports = lazy(() => import('./pages/Reports.jsx'));
+const WhatWeMeasure = lazy(() => import('./pages/WhatWeMeasure.jsx'));
+const AllData = lazy(() => import('./pages/AllData.jsx'));
 
 // Plain-language pages, in the order they should appear in the nav (see
 // V2 spec "Information architecture"). Hash-based routing was chosen over
@@ -68,7 +77,9 @@ export default function App() {
       <PrimaryNav items={ROUTES} current={active.path} />
       <main id="main-content" className="site-main" tabIndex={-1}>
         <div className="container">
-          <Page routeParam={route.rest} navigate={(path) => { window.location.hash = `#/${path}`; }} />
+          <Suspense fallback={<LoadingState label="Loading…" />}>
+            <Page routeParam={route.rest} navigate={(path) => { window.location.hash = `#/${path}`; }} />
+          </Suspense>
         </div>
       </main>
       <footer className="site-footer">

@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import secrets
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -60,7 +61,11 @@ def require_admin(authorization: str | None) -> None:
         return
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "This endpoint needs an Authorization: Bearer <key> header.")
-    if authorization.removeprefix("Bearer ").strip() != admin_key:
+    # compare_digest, not ==: a plain string comparison returns on the
+    # first mismatched byte, so its timing leaks how many leading
+    # characters of a guess were correct. Low-value target here, but the
+    # fix costs nothing.
+    if not secrets.compare_digest(authorization.removeprefix("Bearer ").strip(), admin_key):
         raise HTTPException(403, "That admin key was not recognised.")
 
 
