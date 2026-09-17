@@ -145,6 +145,7 @@ function LocationDetail({ w3w }) {
         <PhotoLightbox
           photo={{
             url: openPhotoUrl,
+            original_url: location.photos.find((p) => p.url === openPhotoUrl)?.original_url,
             w3w: location.w3w,
             date: location.photos.find((p) => p.url === openPhotoUrl)?.date,
             description: location.photos.find((p) => p.url === openPhotoUrl)?.description,

@@ -727,8 +727,19 @@ input[type="date"]:focus-visible {
   color: rgba(255, 255, 255, 0.75);
 }
 
+/* .btn-secondary's colour follows the page theme (var(--text-primary)),
+   but the lightbox itself is always dark chrome regardless of theme (see
+   .lightbox above) -- in light mode that left "Close" as near-black text
+   on a near-black backdrop. Pinned to white/light to match the rest of
+   .lightbox__top, which is white unconditionally for the same reason. */
 .lightbox__close {
   margin-left: auto;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.lightbox__close:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .lightbox__img {

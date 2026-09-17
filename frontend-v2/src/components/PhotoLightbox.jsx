@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatDate } from '../lib/format.js';
 
 // Full-screen photo viewer, used by the "Your place" page: choosing a
@@ -10,6 +10,13 @@ import { formatDate } from '../lib/format.js';
 
 export default function PhotoLightbox({ photo, onClose }) {
   const closeRef = useRef(null);
+  // Mirrors PhotoTile's fallback: the cropped media endpoint 404s for a
+  // photo it hasn't processed (or can't), and a tile silently falls back
+  // to the EpiCollect original -- the lightbox reused the tile's own URL
+  // with no such fallback, so a photo that opened fine as a thumbnail
+  // broke full-screen. See PhotoTile.jsx for the fuller explanation.
+  const [onOriginal, setOnOriginal] = useState(false);
+  const src = onOriginal ? (photo.original_url || photo.url) : photo.url;
 
   useEffect(() => {
     const onKey = (e) => {
@@ -46,9 +53,12 @@ export default function PhotoLightbox({ photo, onClose }) {
       </div>
       <img
         className="lightbox__img"
-        src={photo.url}
+        src={src}
         alt={photo.description || `Photo taken at ${photo.w3w}`}
         onClick={(e) => e.stopPropagation()}
+        onError={() => {
+          if (!onOriginal && photo.original_url) setOnOriginal(true);
+        }}
       />
       {photo.description && (
         <div className="lightbox__bottom" onClick={(e) => e.stopPropagation()}>
