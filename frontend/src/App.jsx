@@ -137,6 +137,9 @@ export default function App() {
 
   return (
     <div className="app">
+      <a className="new-site-banner" href="https://colnrg.app/new">
+        <strong>Try our newly improved website</strong>
+      </a>
       <header className="header">
         <div>
           <h1>Coln River Guardians</h1>
@@ -253,13 +256,13 @@ export default function App() {
         <div className="beta-group">
           <span className="beta-badge">Beta</span>
           <button
-            className={`tab ${tab === "site-report" ? "active" : ""}`}
+            className={`tab beta-tab${tab === "site-report" ? " beta-active" : ""}`}
             onClick={() => switchTab("site-report")}
           >
             Site Report
           </button>
           <button
-            className={`tab ${tab === "round-report" ? "active" : ""}`}
+            className={`tab beta-tab${tab === "round-report" ? " beta-active" : ""}`}
             onClick={() => switchTab("round-report")}
           >
             Round Report
@@ -373,7 +376,7 @@ export default function App() {
                 The Coln Line
               </button>
             </div>
-            {sitesTab === "map" ? <SiteMap sites={sites} /> : <ColnLine darkMode={isDark} />}
+            {sitesTab === "map" ? <SiteMap sites={sites} darkMode={isDark} /> : <ColnLine darkMode={isDark} />}
           </Suspense>
         )}
       </main>

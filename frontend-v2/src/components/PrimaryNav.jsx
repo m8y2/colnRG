@@ -2,8 +2,9 @@
 // (one of the two accessible patterns the spec allows) rather than a
 // button-based tablist, since each item is a distinct page, not a panel
 // within one page. Current page is marked with aria-current="page", which
-// screen readers announce and which layout.css turns into an underline —
-// never colour alone.
+// screen readers announce regardless of how layout.css styles it visually
+// (currently: darker text only, by the owner's own choice -- see the
+// aria-current rule there for the accessibility trade-off that leaves).
 export default function PrimaryNav({ items, current }) {
   return (
     <nav className="primary-nav" aria-label="Primary">

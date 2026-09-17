@@ -4,7 +4,7 @@ import {
   ReferenceArea, ResponsiveContainer,
 } from 'recharts';
 import { bandZones, bandColorVar, bandGlyph, classifyBand, isBanded } from '../lib/bands.js';
-import { formatDate, formatReading, qualifierNote } from '../lib/format.js';
+import { formatDate, formatReading, qualifierNote, unitLabel } from '../lib/format.js';
 
 // A dot for every usable numeric reading, ring in the surface colour so it
 // reads cleanly against the line and the band zones behind it. The most
@@ -24,7 +24,7 @@ function ReadingDot({ cx, cy, payload, isLast, unit }) {
   );
 }
 
-function ChartTooltip({ active, payload, label, unit, parameter, banded }) {
+function ChartTooltip({ active, payload, unit, parameter, banded }) {
   if (!active || !payload || !payload.length) return null;
   const point = payload[0]?.payload;
   if (!point || point.value === null || point.value === undefined) return null;
@@ -32,7 +32,11 @@ function ChartTooltip({ active, payload, label, unit, parameter, banded }) {
   const note = qualifierNote(point.qualifier);
   return (
     <div className="chart-tooltip">
-      <div className="chart-tooltip__label">{formatDate(label)}</div>
+      {/* The point's own date field, not the `t` (epoch-millisecond) axis
+          value Recharts would otherwise pass as `label` here -- the axis's
+          own tickFormatter only formats its tick text, not this, so the
+          tooltip was showing a raw 13-digit number like 1761955200000. */}
+      <div className="chart-tooltip__label">{formatDate(point.date)}</div>
       <div className="chart-tooltip__row">
         <span className="chart-tooltip__value">{formatReading(point, unit)}</span>
       </div>
@@ -168,7 +172,7 @@ export default function TimeSeriesChart({ points, parameter }) {
                 tickLine={false}
                 axisLine={false}
                 width={44}
-                label={{ value: unit, angle: -90, position: 'insideLeft', fill: 'var(--text-muted)', fontSize: 12 }}
+                label={unitLabel(unit) ? { value: unitLabel(unit), angle: -90, position: 'insideLeft', fill: 'var(--text-muted)', fontSize: 12 } : undefined}
               />
               <Tooltip
                 content={<ChartTooltip unit={unit} parameter={parameter} banded={banded} />}

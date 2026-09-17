@@ -1,5 +1,6 @@
 import { BandChip, BandLegend } from './BandChip.jsx';
 import { isBanded } from '../lib/bands.js';
+import { unitLabel } from '../lib/format.js';
 
 /**
  * A parameter explained in plain English. `compact` is used for the "river
@@ -16,20 +17,18 @@ export default function ParameterCard({ parameter, band, compact = false, overvi
   // rebuild had lost data. Say what was actually recorded instead.
   const words = overview?.n_ordinal_readings || 0;
   const numeric = overview?.n_readings || 0;
+  const total = words + numeric;
   const showWordsInstead = !band && words > 0;
   return (
     <div className="card parameter-card">
       <div className="parameter-card__head">
         <h3 style={{ margin: 0 }}>{parameter.label}</h3>
-        <span className="parameter-card__unit">{parameter.unit}</span>
+        <span className="parameter-card__unit">{unitLabel(parameter.unit)}</span>
       </div>
       {banded && band && !showWordsInstead && <BandChip band={band} parameter={parameter} />}
       {showWordsInstead && (
         <p className="text-sm mt-0">
-          <strong>{words} written observations</strong>
-          {numeric > 0 ? ` and ${numeric} meter readings.` : '.'} Volunteers judge
-          this by eye and write it down, so it is not graded against the
-          meter-based bands.
+          <strong>{total} written observations</strong>
         </p>
       )}
       {!band && !showWordsInstead && overview && (

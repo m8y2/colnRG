@@ -2,7 +2,7 @@ import { useApi } from '../lib/useApi.js';
 import * as api from '../lib/api.js';
 import { LoadingState, ErrorState } from '../components/AsyncState.jsx';
 import { BandLegend } from '../components/BandChip.jsx';
-import { formatValue } from '../lib/format.js';
+import { formatValue, unitLabel } from '../lib/format.js';
 
 // The glossary page. Everything here comes from wfd.py via /parameters,
 // so the words used on a chart, in a report and on this page cannot drift
@@ -51,7 +51,7 @@ function BandTable({ parameter }) {
         <thead>
           <tr>
             <th scope="col">Band</th>
-            <th scope="col">Reading ({parameter.unit})</th>
+            <th scope="col">{unitLabel(parameter.unit) ? `Reading (${unitLabel(parameter.unit)})` : 'Reading'}</th>
             <th scope="col">What that means for the river</th>
           </tr>
         </thead>

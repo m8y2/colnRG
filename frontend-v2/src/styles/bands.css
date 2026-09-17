@@ -13,6 +13,13 @@
   transform: translateY(-1px);
 }
 
+/* The bare form: glyph + band word on one line, nothing else. This is
+   also used standalone (no gloss, no wrapper component) by
+   LocationList.jsx for the "#N place, band" rows in "All locations,
+   source to Thames" -- it must stay a plain inline row, or every row in
+   that list doubles in height. `.band-chip--with-gloss` below is the
+   modifier the BandChip component adds for its own two-line form; it
+   never applies here. */
 .band-chip {
   display: inline-flex;
   align-items: baseline;
@@ -23,14 +30,23 @@
   color: var(--text-primary);
 }
 
-/* Only the glyph and the band word are kept on one line. The plain-English
-   gloss after them is a sentence and must be free to wrap, or it overflows
-   the card at narrow widths. */
 .band-chip__name {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+}
+
+/* The BandChip component's own form, where a plain-English gloss follows
+   the band. The glyph and band word sit on one line, above the gloss on
+   its own line below -- a colon-joined single line used to wrap on its
+   own at narrow widths, leaving an orphaned ": Phosphate is high
+   enough…" stranded underneath. See BandChip.jsx. */
+.band-chip--with-gloss {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .band-chip--lg {
@@ -41,6 +57,7 @@
 .band-chip__glyph { font-size: 1.1em; }
 
 .band-chip__gloss {
+  margin: 0;
   font-weight: 400;
   color: var(--text-secondary);
 }

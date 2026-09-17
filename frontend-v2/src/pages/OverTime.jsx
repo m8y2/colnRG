@@ -31,7 +31,12 @@ export default function OverTime() {
   const { status: paramsStatus, data: paramsData } = useApi(() => api.getParameters(), []);
   const { status: locsStatus, data: locsData } = useApi(() => api.getLocations(), []);
 
-  const parameters = paramsData?.parameters || [];
+  // Dissolved oxygen and conductivity are barely measured (a handful of
+  // readings each out of hundreds), so a trend line drawn from that few
+  // points would look like a real signal and isn't one. Hidden the same
+  // way they're hidden from the "river right now" headline measures.
+  const hidden = new Set(['dissolved_oxygen', 'conductivity']);
+  const parameters = (paramsData?.parameters || []).filter((p) => !hidden.has(p.key));
   const parameter = parameters.find((p) => p.key === parameterKey);
 
   const orderedLocations = useMemo(() => {
@@ -119,7 +124,7 @@ export default function OverTime() {
           errorMessage={seriesError}
           onRetry={reloadSeries}
           emptyMessage="No readings for this yet."
-          footnote={`${parameter.label} is measured in ${spelledOutUnit(parameter.unit)}.`}
+          footnote={spelledOutUnit(parameter.unit) ? `${parameter.label} is measured in ${spelledOutUnit(parameter.unit)}.` : undefined}
           table={
             <DataTable
               caption={`${title}: every reading behind this chart`}

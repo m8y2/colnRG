@@ -4,7 +4,7 @@ import * as api from '../lib/api.js';
 import { LoadingState, ErrorState } from '../components/AsyncState.jsx';
 import DataTable from '../components/DataTable.jsx';
 import NativeSelect from '../components/NativeSelect.jsx';
-import { formatDate, formatReadingText } from '../lib/format.js';
+import { formatDate, formatReadingText, unitLabel } from '../lib/format.js';
 
 const PER_PAGE = 50;
 
@@ -67,6 +67,10 @@ export default function AllData() {
 
   const call = useApi(() => api.getObservations(filters), [place, from, to, page]);
 
+  const exportParams = useMemo(() => ({ w3w: place, from: from || undefined, to: to || undefined }),
+    [place, from, to]);
+  const hasFilters = Boolean(place || from || to);
+
   const setFilter = (key, value) => {
     if (key === 'place') setPlace(value);
     if (key === 'from') setFrom(value);
@@ -95,7 +99,7 @@ export default function AllData() {
         const paramKey = meta.key;
         return {
           key: `m-${paramKey}`,
-          label: `${meta.label} (${meta.unit})`,
+          label: unitLabel(meta.unit) ? `${meta.label} (${unitLabel(meta.unit)})` : meta.label,
           sortable: true,
           sortValue: (r) => {
             const m = r.measurements?.[paramKey];
@@ -155,8 +159,18 @@ export default function AllData() {
             <input type="date" value={to} onChange={(e) => setFilter('to', e.target.value)} />
           </label>
           <span className="toolbar-spacer" />
-          <a className="btn" href={api.exportCsvUrl({})} download>
-            Download all readings (spreadsheet)
+        </div>
+
+        <div className="cluster download-group" role="group" aria-label="Download readings">
+          <span className="field__label">
+            Download {hasFilters ? 'these' : 'all'} readings as
+          </span>
+          <a className="btn btn-secondary" href={api.exportXlsxUrl(exportParams)} download>
+            .xlsx spreadsheet
+          </a>
+          <span className="download-group__divider" aria-hidden="true" />
+          <a className="btn btn-secondary" href={api.exportCsvUrl(exportParams)} download>
+            .csv plain text
           </a>
         </div>
 

@@ -144,40 +144,13 @@ export function exportCsvUrl(params) {
   return `${BASE}/export.csv${buildQuery(params)}`;
 }
 
-// ---- Reports (data plumbing only — the Reports UI itself is owned
-// elsewhere; these wrappers exist so that UI has one place to fetch from) ----
-
-export function getReports({ type, key, audience } = {}, opts) {
-  return request('/reports', { ...opts, params: { type, key, audience } });
+export function exportXlsxUrl(params) {
+  return `${BASE}/export.xlsx${buildQuery(params)}`;
 }
 
-// The report kinds and audiences, with the wording the interface uses.
-// Served by the backend so the questions asked here and the prompts the
-// engine runs cannot drift apart.
-export function getReportTypes(opts) {
-  return request('/reports/types', opts);
-}
-
-export function getReport(id, opts) {
-  return request(`/reports/${encodeURIComponent(id)}`, opts);
-}
-
-export function getReportDownloadUrl(id, format = 'md') {
-  return `${BASE}/reports/${encodeURIComponent(id)}/download?format=${format}`;
-}
-
-export function getReportVersions({ type, key, audience } = {}, opts) {
-  return request('/reports/versions', { ...opts, params: { type, key, audience } });
-}
-
-export function generateReport(payload, opts) {
-  return request('/reports/generate', { ...opts, method: 'POST', body: payload });
-}
-
-export function getReportJob(jobId, opts) {
-  return request(`/reports/jobs/${encodeURIComponent(jobId)}`, opts);
-}
-
-export function getReportJobs(opts) {
-  return request('/reports/jobs', opts);
-}
+// The Reports page is a static PDF (see pages/Reports.jsx) rather than the
+// on-demand LLM-generated report this used to fetch and poll for. The
+// wrappers that did that (getReports, generateReport, getReportJob, …)
+// were removed with it rather than left as dead code. The engine they
+// called (backend/v2/engine.py, facts.py, prompts.py) is untouched and
+// still runnable from the backend if the AI reports feature comes back.

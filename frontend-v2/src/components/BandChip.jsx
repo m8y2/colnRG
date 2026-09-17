@@ -13,16 +13,23 @@ export function BandChip({ band, parameter, gloss, showGloss = true, size = 'bas
     return <span className="band-chip text-muted">No reading yet</span>;
   }
   const text = gloss ?? bandGloss(band, parameter);
+  const hasGloss = showGloss && !!text;
+  // Where a gloss follows, it is its own line, not a continuation of the
+  // band name joined by a colon: at narrow widths a colon-joined line
+  // used to wrap on its own, leaving an orphaned ": Phosphate is high
+  // enough…" underneath. `.band-chip--with-gloss` is scoped to this
+  // component; the bare `.band-chip` class is also used standalone (no
+  // gloss) elsewhere, see bands.css, and must stay a plain row there.
   return (
-    <span className={`band-chip${size === 'lg' ? ' band-chip--lg' : ''}`}>
+    <div className={`band-chip${hasGloss ? ' band-chip--with-gloss' : ''}${size === 'lg' ? ' band-chip--lg' : ''}`}>
       <span className="band-chip__name">
         <span className="band-chip__glyph" style={{ color: bandColorVar(band) }} aria-hidden="true">
           {bandGlyph(band)}
         </span>
         {band}
       </span>
-      {showGloss && text && <span className="band-chip__gloss">: {text}</span>}
-    </span>
+      {hasGloss && <p className="band-chip__gloss">{text}</p>}
+    </div>
   );
 }
 

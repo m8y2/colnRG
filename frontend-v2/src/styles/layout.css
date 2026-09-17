@@ -34,11 +34,15 @@ html, body {
   .container { padding: 0 var(--space-5); }
 }
 
-/* Skip link */
+/* Skip link. -200px rather than a size-relative offset: the link's real
+   rendered height (padding + its line-height) comes out a shade over
+   3rem, so a -3rem offset left a sliver of the button's bottom edge
+   peeking under the top of the viewport. A fixed offset well past any
+   plausible height has no such margin to get wrong. */
 .skip-link {
   position: absolute;
   left: var(--space-3);
-  top: -3rem;
+  top: -200px;
   background: var(--color-accent-strong);
   color: var(--color-on-accent-strong);
   padding: var(--space-3) var(--space-4);
@@ -63,7 +67,14 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-4) 0;
+  /* Top/bottom only: this sits on a `.container`, and a `padding: X 0`
+     shorthand here was overwriting that container's own left/right
+     padding with 0 (shorthand sets all four sides, it doesn't merge with
+     a class alongside it) -- which is why the site title sat flush left
+     while the nav row below it, whose padding comes from its own rule
+     rather than a shared `.container`, kept its inset and didn't. */
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-4);
 }
 
 .site-header__brand {
@@ -125,9 +136,13 @@ html, body {
   text-decoration: none;
 }
 
+/* By request, the current page is marked by darker text only, not a
+   coloured underline -- so this is colour alone as the signal, a
+   deliberate exception to how the rest of the site marks state. The
+   hairline under the whole nav row (`.primary-nav`, above) still runs
+   under every tab, active or not, and is unrelated to this. */
 .primary-nav__link[aria-current="page"] {
   color: var(--text-primary);
-  border-bottom-color: var(--color-accent-strong);
 }
 
 /* Main content */
@@ -136,10 +151,10 @@ html, body {
   padding: var(--space-6) 0 var(--space-8);
 }
 
-.page-header {
-  margin-bottom: var(--space-6);
-}
-
+/* No margin-bottom here: every page-header sits as the first child of a
+   `.stack`, whose own gap already spaces it from what follows. Adding a
+   margin on top of that gap was doubling up (48px, not 16px) after every
+   page's title -- the one place in the whole layout doing that. */
 .page-header h1 {
   margin-bottom: var(--space-2);
 }
@@ -220,7 +235,11 @@ html, body {
   }
 }
 
-/* Works down to 320px: nothing here fixes a px width narrower than that */
+/* Works down to 320px: nothing here fixes a px width narrower than that.
+   `.primary-nav__list` gets the same tighter padding as `.container` here
+   -- it was missing before, so the nav sat 4px further right than the
+   header brand above it on a narrow phone. */
 @media (max-width: 380px) {
   .container { padding: 0 var(--space-3); }
+  .primary-nav__list { padding: 0 var(--space-3); }
 }

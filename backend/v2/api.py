@@ -595,7 +595,28 @@ def get_data_quality():
     return data_quality()
 
 
-# ── /export.csv ───────────────────────────────────────────────────────
+# ── /export.csv, /export.xlsx ────────────────────────────────────────
+#
+# Same rows, two file formats. A spreadsheet program's own filter/sort is
+# more useful to most readers than a bespoke query UI here, so the header
+# row and column order are kept identical between the two.
+
+EXPORT_HEADER = ["w3w", "recorder", "date", "time", "parameter", "value", "qualifier", "unit", "band"]
+
+
+def _export_rows(
+    w3w: str | None, parameter: str | None, recorder: str | None,
+    date_from: str | None, date_to: str | None,
+):
+    parameters_to_export = [parameter] if parameter else PARAMETER_ORDER
+    for p in parameters_to_export:
+        unit = PARAMETERS[p]["unit"]
+        for r in readings(w3w=w3w, parameter=p, date_from=date_from, date_to=date_to, recorder=recorder):
+            yield [
+                r["w3w"] or "", r["recorder"] or "", r["date"], r["time"], p,
+                r["value"], r["qualifier"], unit, classify_band(p, r["value"]) or "",
+            ]
+
 
 @router.get("/export.csv")
 def export_csv(
@@ -607,23 +628,52 @@ def export_csv(
 ):
     """Tidy CSV of usable readings — one row per reading — for the
     minority of readers who want the raw numbers rather than a chart."""
-    parameters_to_export = [parameter] if parameter else PARAMETER_ORDER
-
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["w3w", "recorder", "date", "time", "parameter", "value", "qualifier", "unit", "band"])
-    for p in parameters_to_export:
-        unit = PARAMETERS[p]["unit"]
-        for r in readings(w3w=w3w, parameter=p, date_from=date_from, date_to=date_to, recorder=recorder):
-            writer.writerow([
-                r["w3w"] or "", r["recorder"] or "", r["date"], r["time"], p,
-                r["value"], r["qualifier"], unit, classify_band(p, r["value"]) or "",
-            ])
+    writer.writerow(EXPORT_HEADER)
+    for row in _export_rows(w3w, parameter, recorder, date_from, date_to):
+        writer.writerow(row)
 
     return Response(
         content=buf.getvalue(),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=coln-readings.csv"},
+    )
+
+
+@router.get("/export.xlsx")
+def export_xlsx(
+    w3w: str | None = Query(None),
+    parameter: str | None = Query(None, pattern=PARAMETER_PATTERN),
+    recorder: str | None = Query(None),
+    date_from: str | None = Query(None, alias="from"),
+    date_to: str | None = Query(None, alias="to"),
+):
+    """Same rows as /export.csv, as a real .xlsx workbook, for readers who
+    want it to open straight into Excel with columns already separated
+    rather than trusting a CSV's comma-and-locale guessing."""
+    from openpyxl import Workbook
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Readings"
+    ws.append(EXPORT_HEADER)
+    for cell in ws[1]:
+        cell.font = cell.font.copy(bold=True)
+    for row in _export_rows(w3w, parameter, recorder, date_from, date_to):
+        ws.append(row)
+    ws.freeze_panes = "A2"
+    for i, header in enumerate(EXPORT_HEADER, start=1):
+        width = max(len(header) + 2, 12)
+        ws.column_dimensions[get_column_letter(i)].width = width
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=coln-readings.xlsx"},
     )
 
 

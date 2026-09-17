@@ -1,49 +1,48 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useState } from 'react';
 
+// Same non-cookie technique as v1 (frontend/src/App.jsx): a plain
+// localStorage flag, no "match device" option kept live during the visit.
+// A page that silently changes theme mid-session because the OS switched
+// at sunset is confusing to come back to, so the device's preference is
+// only ever a one-time starting point: read once, then overridden the
+// moment someone picks a side, exactly like v1's toggle.
 const STORAGE_KEY = 'crg-v2-theme';
 
-function applyTheme(value) {
-  if (value === 'light' || value === 'dark') {
-    document.documentElement.dataset.theme = value;
-  } else {
-    delete document.documentElement.dataset.theme;
+function initialTheme() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch {
+    // storage unavailable (private browsing etc.), so fall through to the
+    // device default below; the choice just won't be remembered this visit
   }
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 export default function ThemeToggle() {
-  const selectId = useId();
-  const [theme, setTheme] = useState(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY) || 'system';
-    } catch {
-      return 'system';
-    }
-  });
+  const [theme, setTheme] = useState(initialTheme);
 
   useEffect(() => {
-    applyTheme(theme);
+    document.documentElement.dataset.theme = theme;
     try {
       localStorage.setItem(STORAGE_KEY, theme);
     } catch {
-      // storage unavailable (private browsing etc.) — theme still applies for this visit
+      // storage unavailable, but theme still applies for this visit
     }
   }, [theme]);
 
+  const isDark = theme === 'dark';
+  const label = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+
   return (
-    <div className="field" style={{ minWidth: 150 }}>
-      <label className="field__label visually-hidden" htmlFor={selectId}>
-        Colour theme
-      </label>
-      <select
-        id={selectId}
-        className="native-select"
-        value={theme}
-        onChange={(e) => setTheme(e.target.value)}
-      >
-        <option value="system">Match device</option>
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-      </select>
-    </div>
+    <button
+      type="button"
+      className="btn btn-secondary btn-sm theme-toggle"
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      title={label}
+    >
+      <span aria-hidden="true">{isDark ? '☀' : '☾'}</span>
+      <span className="visually-hidden">{label}</span>
+    </button>
   );
 }

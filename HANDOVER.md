@@ -89,7 +89,7 @@ chart page in a **built** app, not just dev.
 ```
 Dashboard/                       branch v2
   frontend/                      v1 — untouched
-  frontend-v2/                   v2 React 19 + Vite, base '/v2/'
+  frontend-v2/                   v2 React 19 + Vite, base '/new/'
     scripts/build-demo.py        builds the single-file offline demo
   backend/
     main.py                      v1 — zero diff

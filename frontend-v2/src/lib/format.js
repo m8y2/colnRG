@@ -43,23 +43,51 @@ export function unitLongName(unit) {
   return UNIT_NAMES[unit] || unit;
 }
 
+// Turbidity's real unit is NTU, and it is kept as such above so readings
+// still round to the right number of decimal places. Almost every
+// turbidity reading is a volunteer's word ("Clear", "Cloudy"), not a meter
+// number, so putting "NTU" in front of a reader implies a precision the
+// data mostly doesn't have. This is the one place that decision is made;
+// every display site below reads it from here rather than checking the
+// unit string itself.
+function displayUnit(unit) {
+  return unit === 'NTU' ? '' : unit;
+}
+
 // "Phosphate (ppm, parts per million)"
 export function spelledOutUnit(unit) {
-  if (!unit) return '';
-  const long = UNIT_NAMES[unit];
-  return long ? `${unit} (${long})` : unit;
+  const shown = displayUnit(unit);
+  if (!shown) return '';
+  const long = UNIT_NAMES[shown];
+  return long ? `${shown} (${long})` : shown;
+}
+
+// The unit as it should appear in a header, axis label or unit chip:
+// never the raw unit string, so a caller can't accidentally reveal NTU.
+export function unitLabel(unit) {
+  return displayUnit(unit);
 }
 
 export function formatValueWithUnit(value, unit) {
   const v = formatValue(value, unit);
   if (v === '—') return v;
-  return `${v} ${unit}`;
+  const shown = displayUnit(unit);
+  return shown ? `${v} ${shown}` : v;
 }
 
-// The reading as a table cell should show it: the number (with a "<", "~"
-// or range marker where the qualifier says the reading was approximate),
-// the word for an ordinal category, or the volunteer's own words. The
-// unit is the column header's job, so it is never included here.
+// The reading as a table cell on "All the data" should show it: the true
+// value the database holds, with only a "<" or "~" where the qualifier
+// says the reading was a bound or a midpoint rather than a plain number.
+// A band_range reading (a test strip that only gave a range, e.g.
+// "10-25") used to show as "10–25 (est 17.5)" here: the range it was
+// read off, replayed next to the single figure the cleaning pipeline
+// settled on. On a page whose own purpose is showing the reading as
+// submitted, that looked like two different numbers for one visit; this
+// page now shows just the figure, same as any other numeric reading. The
+// original range is never lost; it is still in value_low/value_high and
+// in the export, and every other page's "(est.)" wording (see
+// qualifierNote) still explains it where there's room to. The unit is the
+// column header's job, so it is never included here.
 export function formatReadingText(point, parameter) {
   if (!point) return '—';
   const val = point.value ?? undefined;
@@ -68,9 +96,6 @@ export function formatReadingText(point, parameter) {
     if (num === '—') return '—';
     if (point.qualifier === 'below_detection') return `< ${num}`;
     if (point.qualifier === 'range_midpoint') return `~${num}`;
-    if (point.qualifier === 'band_range' && point.value_low != null && point.value_high != null) {
-      return `${formatValue(point.value_low, parameter?.unit)}–${formatValue(point.value_high, parameter?.unit)} (est ${num})`;
-    }
     return num;
   }
   if (point.qualifier === 'ordinal' && point.category) {
@@ -102,13 +127,18 @@ export function qualifierNote(qualifier) {
 // observation — see `isWrittenObservation` / CategoryChart.jsx).
 export function formatReading(point, unit) {
   if (!point || point.value === null || point.value === undefined) return null;
+  // Decimal precision still comes from the real unit (turbidity rounds to
+  // 1dp); the suffix shown to the reader goes through displayUnit, so NTU
+  // itself never appears here even though it drives the rounding above.
   const v = formatValue(point.value, unit);
-  if (point.qualifier === 'below_detection') return `< ${v} ${unit}`;
-  if (point.qualifier === 'range_midpoint') return `~${v} ${unit}`;
+  const shown = displayUnit(unit);
+  const suffix = shown ? ` ${shown}` : '';
+  if (point.qualifier === 'below_detection') return `< ${v}${suffix}`;
+  if (point.qualifier === 'range_midpoint') return `~${v}${suffix}`;
   if (point.qualifier === 'band_range' && point.value_low != null && point.value_high != null) {
-    return `${formatValue(point.value_low, unit)}–${formatValue(point.value_high, unit)} ${unit} (est. ${v})`;
+    return `${formatValue(point.value_low, unit)}–${formatValue(point.value_high, unit)}${suffix} (est. ${v})`;
   }
-  return `${v} ${unit}`;
+  return `${v}${suffix}`;
 }
 
 // True when a reading was recorded as free-text prose ("in spate", a

@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
     log("Both v2 dev servers are running.")
     print("  Backend (v1 + v2 API) → http://127.0.0.1:8000")
-    print("  Frontend v2           → http://127.0.0.1:5174/v2/")
+    print("  Frontend v2           → http://127.0.0.1:5174/new/")
     print("  Press Ctrl+C to stop both.\n")
 
     try:

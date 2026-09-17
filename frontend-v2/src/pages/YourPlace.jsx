@@ -9,7 +9,7 @@ import PhotoLightbox from '../components/PhotoLightbox.jsx';
 import { BandChip } from '../components/BandChip.jsx';
 import Sparkline from '../components/Sparkline.jsx';
 import UsableCount from '../components/UsableCount.jsx';
-import { formatDate, formatReading } from '../lib/format.js';
+import { formatDate, formatReading, unitLabel } from '../lib/format.js';
 import { isBanded, classifyBand } from '../lib/bands.js';
 
 function trendWords(trend) {
@@ -83,7 +83,7 @@ function LocationDetail({ w3w }) {
             <div key={key} className="card parameter-card">
               <div className="parameter-card__head">
                 <h3 style={{ margin: 0 }}>{parameter.label}</h3>
-                <span className="parameter-card__unit">{parameter.unit}</span>
+                <span className="parameter-card__unit">{unitLabel(parameter.unit)}</span>
               </div>
               {latest ? (
                 <>
@@ -99,8 +99,7 @@ function LocationDetail({ w3w }) {
                 <p className="mt-0">
                   <strong>Usually {ordinal.modal_label?.toLowerCase()}</strong>
                   <span className="text-secondary">
-                    {', '}from {ordinal.n_usable} written observation
-                    {ordinal.n_usable === 1 ? '' : 's'}, not a meter reading.
+                    {', '}{ordinal.n_usable} observation{ordinal.n_usable === 1 ? '' : 's'}
                   </span>
                 </p>
               ) : (

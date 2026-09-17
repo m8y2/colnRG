@@ -4,7 +4,7 @@ import {
   ReferenceArea, ResponsiveContainer,
 } from 'recharts';
 import { bandZones, bandColorVar, bandGlyph, classifyBand, isBanded } from '../lib/bands.js';
-import { formatReading } from '../lib/format.js';
+import { formatReading, unitLabel } from '../lib/format.js';
 
 const SOURCE_LABEL = 'Source, near Sevenhampton';
 const THAMES_LABEL = 'Joins the Thames at Lechlade';
@@ -30,35 +30,15 @@ function DownstreamTooltip({ active, payload, unit, parameter, banded }) {
   );
 }
 
-// Renders nothing for most bars — only the highest and lowest reading get
-// a direct label (value + full what3words address), so the chart reads as
-// a journey with two landmarks rather than 40-odd numbers stacked on an
-// axis nobody can read at 320px.
-function NotableLabel({ x, y, width, index, notableIndex, points, unit }) {
-  if (index !== notableIndex || x === undefined) return null;
-  const point = points[index];
-  const cx = x + width / 2;
-  return (
-    <g transform={`translate(${cx}, ${y - 8})`}>
-      <text textAnchor="middle" fontSize={12} fontWeight={700} fill="var(--text-primary)">
-        {formatReading(point, unit)}
-      </text>
-      <text textAnchor="start" fontSize={10} fill="var(--text-secondary)" transform="rotate(-32 0 14)" y={16}>
-        {point.w3w}
-      </text>
-    </g>
-  );
-}
-
 /**
  * One reading per location, ordered strictly by `river_order` (source to
  * Thames) — the reader should be able to read it as a journey downstream.
  * Each bar is coloured by ITS OWN WFD band (not a value ramp); band zones
  * are shaded behind the bars too, so the two encodings reinforce each
  * other. The axis is labelled with the river's two real endpoints rather
- * than a bare 1–48, and the highest/lowest reading are directly labelled
- * with their full what3words address — a journey with landmarks, not a
- * numbered strip.
+ * than a bare 1-48. No bar carries a printed value or address: both are
+ * on the tooltip and in the table below instead, so the chart itself
+ * stays a shape to read rather than a row of numbers.
  *
  * `points`: `[{w3w, river_order, value, value_raw, qualifier, usable}]`,
  * already sorted by river_order, numeric-usable only (the caller mentions
@@ -87,13 +67,6 @@ export default function DownstreamChart({ points, parameter }) {
     : dataMax;
   const domainMax = Math.max(dataMax * 1.15, boundMax * 1.25, boundMax + 1, 1);
   const zones = banded ? bandZones(parameter, domainMax) : [];
-
-  let maxIndex = -1;
-  let minIndex = -1;
-  sorted.forEach((p, i) => {
-    if (maxIndex === -1 || p.value > sorted[maxIndex].value) maxIndex = i;
-    if (minIndex === -1 || p.value < sorted[minIndex].value) minIndex = i;
-  });
 
   const minWidth = Math.max(sorted.length * 52, 360);
 
@@ -145,7 +118,7 @@ export default function DownstreamChart({ points, parameter }) {
                 tickLine={false}
                 axisLine={false}
                 width={44}
-                label={{ value: unit, angle: -90, position: 'insideLeft', fill: 'var(--text-muted)', fontSize: 12 }}
+                label={unitLabel(unit) ? { value: unitLabel(unit), angle: -90, position: 'insideLeft', fill: 'var(--text-muted)', fontSize: 12 } : undefined}
               />
               <Tooltip
                 content={<DownstreamTooltip unit={unit} parameter={parameter} banded={banded} />}
@@ -157,15 +130,6 @@ export default function DownstreamChart({ points, parameter }) {
                 maxBarSize={24}
                 radius={[4, 4, 0, 0]}
                 isAnimationActive={false}
-                label={(props) => {
-                  if (props.index === maxIndex) {
-                    return <NotableLabel {...props} notableIndex={maxIndex} points={sorted} unit={unit} />;
-                  }
-                  if (props.index === minIndex) {
-                    return <NotableLabel {...props} notableIndex={minIndex} points={sorted} unit={unit} />;
-                  }
-                  return null;
-                }}
               >
                 {sorted.map((p) => {
                   const band = banded ? classifyBand(p.value, parameter) : null;

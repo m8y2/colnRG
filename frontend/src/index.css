@@ -276,8 +276,38 @@ body {
   font-weight: 600;
 }
 
-.beta-group .tab.active {
-  border-bottom: none !important;
+.beta-group {
+  position: relative;
+  display: inline-flex;
+  border: 2px solid var(--primary);
+  border-radius: 8px;
+  margin-bottom: -2px;
+}
+
+.beta-group .tab {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.tab.beta-active {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.beta-badge {
+  position: absolute;
+  top: -10px;
+  left: 6px;
+  background: var(--primary);
+  color: #fff;
+  font-size: .6rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  z-index: 1;
+  line-height: 1.3;
 }
 
 .loading {
@@ -533,6 +563,17 @@ body {
     font-size: 0.78rem;
     white-space: nowrap;
     flex-shrink: 0;
+  }
+
+  .beta-group {
+    border-width: 1.5px;
+    border-radius: 6px;
+  }
+
+  .beta-badge {
+    font-size: 0.55rem;
+    top: -8px;
+    padding: 0 4px;
   }
 
   .stats-grid {
@@ -851,4 +892,28 @@ body {
 
 .dark .recharts-text {
   fill: var(--text-secondary) !important;
+}
+/* Banner pointing at the rebuilt site (colnrg.app/new). Same idea as the
+   offline demo's banner (a full-width coloured strip above the header),
+   but themed off this app's own light/dark variables and clickable
+   through to the new site rather than static text. */
+.new-site-banner {
+  display: block;
+  background: var(--primary);
+  color: #fff;
+  text-decoration: none;
+  padding: 10px 16px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.new-site-banner:hover,
+.new-site-banner:focus-visible {
+  background: var(--primary-hover);
+  color: #fff;
+}
+
+.new-site-banner strong {
+  font-weight: 700;
 }

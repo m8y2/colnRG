@@ -122,7 +122,7 @@ export default function PhotoTile({ photo, open, onToggle, navigate, overlay = t
             {navigate && (
               <button
                 type="button"
-                className="btn btn--primary"
+                className="btn btn-primary"
                 onClick={(e) => {
                   e.stopPropagation();
                   navigate(`your-place/${encodeURIComponent(photo.w3w)}`);

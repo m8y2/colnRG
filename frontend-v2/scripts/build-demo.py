@@ -29,16 +29,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
 
-BANNER = (
-    '<div style="background:#123c4a;color:#fff;padding:10px 18px;'
-    "font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif\">"
-    "<strong>Offline demo.</strong> A copy of the website with the real river data, in one "
-    "file. It works without an internet connection, apart from the map and the photos, "
-    "which need one. Reports cannot be requested from this copy, and nothing in it can "
-    "change the readings."
-    "</div>"
-)
-
 # The shim answers from the snapshot instead of the network. Keyed on the
 # path plus query string, which is exactly how src/lib/api.js builds a URL.
 # Two endpoint groups get special treatment so they behave like the live
@@ -253,9 +243,31 @@ def embed_processed_photos(snap: dict, base: str) -> None:
                 fix(photo)
 
 
+MIME_BY_SUFFIX = {".pdf": "application/pdf"}
+
+
+def embed_static_files(js: str) -> str:
+    """Inline anything under public/ that the bundle references by a plain
+    path string rather than fetching it (the Reports page's PDF, `data=`
+    on an `<object>` and `href=` on a download link -- neither goes
+    through `fetch`, so the shim below cannot intercept it, and a plain
+    path is dead the moment there is no server behind it). Vite copies
+    public/ into dist/ untouched, so the referenced file is sitting right
+    there to read and re-embed as a data: URI, no network round-trip
+    needed."""
+    for suffix, mime in MIME_BY_SUFFIX.items():
+        for match in set(re.findall(rf"/new/[A-Za-z0-9_./-]+\{suffix}", js)):
+            asset = DIST / match.removeprefix("/new/")
+            if not asset.is_file():
+                continue
+            data_uri = f"data:{mime};base64," + base64.b64encode(asset.read_bytes()).decode()
+            js = js.replace(match, data_uri)
+    return js
+
+
 def build(snap: dict, raw: dict, raw_names: dict) -> str:
     html = (DIST / "index.html").read_text()
-    js = sorted((DIST / "assets").glob("*.js"))[0].read_text()
+    js = embed_static_files(sorted((DIST / "assets").glob("*.js"))[0].read_text())
     css = sorted((DIST / "assets").glob("*.css"))[0].read_text()
 
     shim = SHIM.replace("__RAW_NAMES__", json.dumps(raw_names))
@@ -265,11 +277,10 @@ def build(snap: dict, raw: dict, raw_names: dict) -> str:
     # Edit the outer page FIRST, while it is still just index.html with a
     # single <body>. The shim (injected below) embeds the captured report
     # HTML downloads, which contain their own <body>/</body> — if those
-    # were present when these replaces run, the banner or the whole app
-    # bundle would be injected into the captured documents instead.
+    # were present when these replaces run, the whole app bundle would be
+    # injected into the captured documents instead.
     out = re.sub(r'<script type="module"[^>]*src="[^"]*"></script>', "", html)
     out = re.sub(r'<link rel="stylesheet"[^>]*href="[^"]*"[^>]*>', "", out)
-    out = out.replace("<body>", f"<body>{BANNER}", 1)
     out = out.replace("</body>", f'<script type="module">{js}</script>\n</body>', 1)
 
     # Then inject CSS + shim into the head, so their embedded content can

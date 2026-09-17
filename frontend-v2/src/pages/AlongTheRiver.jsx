@@ -105,7 +105,7 @@ export default function AlongTheRiver() {
           errorMessage={error}
           onRetry={reload}
           emptyMessage="No located readings for this measure and round."
-          footnote="Bars are coloured by their own band. The two labelled bars are the highest and lowest readings; hover or use the table for every value."
+          footnote="Bars are coloured by their own band. Hover a bar, or use the table below, to see its value and location."
           table={
             <DataTable
               caption="Every location on the river, source to Thames"
