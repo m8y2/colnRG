@@ -4,7 +4,7 @@
 # /etc/nginx/sites-enabled/coln-dashboard on the droplet; see MIGRATION.md,
 # which is the source of truth for the Sectigo cert, the :80 -> :443
 # redirect and the security headers. Add the two blocks below to it rather
-# than replacing it — replacing it loses HTTPS.
+# than replacing it -- replacing it loses HTTPS.
 #
 # v1 keeps / and /api. The new site gets /new and /api/v2 -- /api/v2 is the
 # backend's own version namespace, unrelated to the front-end path, so it
@@ -12,28 +12,33 @@
 # once it runs main_v2:app instead of main:app, so there is no second
 # backend to supervise.
 
-# The new front end (frontend-v2/). Built with base '/new/', so its asset
-# URLs already carry the prefix.
-location /new/ {
-    alias /opt/coln-dashboard/frontend-v2/dist/;
-    try_files $uri $uri/ /new/index.html;
-
-    # Hashed asset filenames, so they can be cached hard. index.html must
-    # not be, or a deploy takes hours to reach anyone.
-    location ~* ^/new/assets/.*\.(js|css|woff2?|png|svg|jpg)$ {
-        alias /opt/coln-dashboard/frontend-v2/dist/assets/;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-}
-
 location = /new {
     return 301 /new/;
 }
 
+# The new front end (frontend-v2/). Built with base '/new/', so its asset
+# URLs already carry the prefix. ^~ stops nginx falling through to a
+# site-wide regex location (e.g. one caching *.js/*.css against v1's root)
+# for anything under here.
+#
+# Deliberately ONE location, not this one plus a nested regex location for
+# long-cache headers on the hashed assets: `alias` inside a regex location
+# needs an explicit capture group to build the file path, and without one
+# nginx guesses at whether e.g. assets/foo.js might be a directory and
+# 301-redirects to add a trailing slash -- breaking every asset and the
+# report PDF. Verified against the live site on first deploy (2026-09-17).
+# A correct capture-group version could restore per-asset cache headers if
+# it's ever worth the complexity; this trades that for reliably correct.
+location ^~ /new/ {
+    alias /opt/coln-dashboard/frontend-v2/dist/;
+    try_files $uri $uri/ /new/index.html;
+}
+
 # /api/v2 is handled by the same FastAPI app as /api, so this only exists
-# to be explicit. If the existing `location /api` block already proxies
-# everything under /api, this block is redundant — check before adding it.
+# to be explicit. On the live config as of 2026-09, `location /api/` already
+# proxies everything under /api with no further prefix matching, so this
+# block is redundant there -- check the existing /api block before adding
+# it elsewhere.
 location /api/v2/ {
     proxy_pass http://127.0.0.1:8000;
     proxy_set_header Host $host;

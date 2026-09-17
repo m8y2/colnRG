@@ -66,8 +66,14 @@ export default function LocationMap({ locations, onSelectLocation, selected }) {
       attributionControl: true,
     });
     mapRef.current = map;
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    // CartoDB, not tile.openstreetmap.org directly: the production CSP's
+    // img-src only allows *.basemaps.cartocdn.com (matching v1's map,
+    // src/components/SiteMap.jsx, which uses the same provider) -- raw OSM
+    // tiles are silently blocked by the browser there and the map is just
+    // empty. CartoDB's own basemap tiles are themselves built from OSM
+    // data, so the attribution credits both.
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com">CARTO</a>',
       maxZoom: 18,
     }).addTo(map);
     layerRef.current = L.layerGroup().addTo(map);
