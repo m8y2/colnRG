@@ -6,8 +6,15 @@ Snapshots the real API into one HTML file with the CSS and JS inlined and
 attachment and opened with no server, no Python and no npm.
 
     cd Dashboard/backend && ./venv/bin/python -m uvicorn main_v2:app --port 8000 &
-    cd Dashboard/frontend-v2 && npm run build
+    cd Dashboard/frontend-v2 && DEMO_BUILD=1 npm run build
     python3 scripts/build-demo.py
+
+DEMO_BUILD=1 matters, not just `npm run build`: pages are React.lazy()
+(see App.jsx), so a normal build is one small chunk per route and this
+script can only inline a single JS file into its one-file HTML -- the
+rest would 404 with no server behind them to fetch them from.
+DEMO_BUILD=1 (see vite.config.js) folds every lazy chunk back into one
+file for this build only; the real deployed site keeps the split build.
 
 Writes to ~/Desktop by default; pass --out to change that. The data is
 real — whatever the running backend returns — but anything that would
@@ -272,7 +279,16 @@ def embed_static_files(js: str) -> str:
 
 def build(snap: dict, raw: dict, raw_names: dict) -> str:
     html = (DIST / "index.html").read_text()
-    js = embed_static_files(sorted((DIST / "assets").glob("*.js"))[0].read_text())
+    js_files = sorted((DIST / "assets").glob("*.js"))
+    if len(js_files) != 1:
+        raise SystemExit(
+            f"Expected one JS file in dist/assets/, found {len(js_files)}: "
+            f"{[f.name for f in js_files]}. This build was not made with "
+            "DEMO_BUILD=1 (see this file's docstring and vite.config.js) -- "
+            "each of those is a separate lazy-loaded route chunk, and this "
+            "script can only inline one file into the single-page demo."
+        )
+    js = embed_static_files(js_files[0].read_text())
     css = sorted((DIST / "assets").glob("*.css"))[0].read_text()
 
     shim = SHIM.replace("__RAW_NAMES__", json.dumps(raw_names))

@@ -1,5 +1,15 @@
 import { defineConfig } from 'vite'
 
+// DEMO_BUILD=1 npm run build produces the single-file bundle
+// scripts/build-demo.py needs: every page is React.lazy() now (see
+// App.jsx), so the normal build is one small chunk per route, and
+// build-demo.py can only inline one JS file into its one-file HTML --
+// the rest would 404 with no server behind them. inlineDynamicImports
+// folds every lazy chunk back into the entry file for this build only;
+// the real deployed site keeps the split build, which is what actually
+// wants the smaller initial download.
+const demoBuild = process.env.DEMO_BUILD === '1'
+
 export default defineConfig({
   base: '/',
   esbuild: { jsx: 'automatic' },
@@ -23,4 +33,5 @@ export default defineConfig({
       'victory-vendor',
     ],
   },
+  build: demoBuild ? { rollupOptions: { output: { inlineDynamicImports: true } } } : {},
 })
