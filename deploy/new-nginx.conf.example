@@ -35,8 +35,20 @@ location = /new {
 # without ^~ here, nginx's longest-prefix-then-regex rule lets that
 # regex win and the request 404s against the static root instead of
 # being proxied. Found live, serving the photo gallery, 2026-09-17.
+#
+# The `api` zone (defined in nginx.conf's http block as
+# `rate=10r/s`) covers every /api/v2/* read endpoint plus every photo
+# thumbnail under /api/v2/media/ -- one page view fires a dozen-plus of
+# these at once (overview, parameters, locations, rounds, downstream,
+# several media thumbnails), and clicking through a few "Your place"
+# locations multiplies that further. The zone started at 30r/m burst=10,
+# sized for the costly `sync`/`reportgen` zones' logic rather than this
+# one -- real browsing was tripping "This could not be loaded" within
+# seconds. burst=60 nodelay covers a fast multi-location browsing
+# session; 10r/s still caps a single IP well below anything that would
+# trouble the backend. Found live, 2026-09-17.
 location ^~ /api/ {
-    limit_req zone=api burst=10 nodelay;
+    limit_req zone=api burst=60 nodelay;
     proxy_pass http://127.0.0.1:8000;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;

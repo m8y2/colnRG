@@ -5,7 +5,7 @@ import threading
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 from fastapi import FastAPI, Query, Header, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware

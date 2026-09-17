@@ -39,26 +39,33 @@ EXPORT_URL = "https://five.epicollect.net/api/export/entries/coln-river-guardian
 PER_PAGE = 500
 USER_AGENT = "RiverGuardiansDashboard/2.0"
 
-# EpiCollect field keys. Same names as v1's sync.py FIELD_KEYS -- reused
-# rather than re-derived, so the two agree about what a column means.
-F_W3W = "1_What_are_your_What"
-F_W3W_OTHER = "3_Please_type_your_W"
-F_LANDOWNER = "4_Landowner_if_known"
-F_DATE = "5_What_is_the_date"
-F_TIME = "6_What_is_the_time"
-F_PHOTO = "17_Add_a_photo_of_is"
-F_PHOTO_DESC = "18_Photo_Description"
-F_PHOTO_2 = "19_Add_additional_ph"
-F_NOTES = ("16_Additional_Commen", "21_Additional_Commen", "22_Additional_Commen")
+# EpiCollect field keys. EpiCollect regenerates a question's export key
+# whenever the question text is edited in the form builder, so these are
+# not stable across a form edit -- they broke exactly this way once
+# already (form restructured 2026-07-28; keys below fetched live and
+# matched to question text via the project-structure endpoint,
+# https://five.epicollect.net/api/export/project/coln-river-guardians,
+# 2026-09-17). If a future --fetch shows entries/located collapsing
+# (see the sanity check in rebuild()'s caller in __main__), re-check
+# that endpoint before assuming the data itself changed.
+F_W3W = "what_three_words"
+F_W3W_OTHER = "1What3WordsOther"
+F_LANDOWNER = "6_Landowner_if_known"
+F_DATE = "3Date"
+F_TIME = "4Time"
+F_PHOTO = "15Photo_1"
+F_PHOTO_DESC = "16Photo_Description"
+F_PHOTO_2 = "16Photo_2"
+F_NOTES = ("17Comments", "21_Additional_Commen", "22_Additional_Commen")
 
 PARAM_FIELDS = {
-    "water_depth": "7_Estimate_the_water",
-    "phosphate": "8_What_is_the_phosph",
-    "ammonia": "9_What_is_the_ammoni",
-    "nitrate": "10_What_is_the_nitra",
-    "turbidity": "11_What_is_the_turbi",
-    "dissolved_oxygen": "12_Dissolved_oxygen",
-    "conductivity": "13_What_is_the_condu",
+    "water_depth": "Water_Depth",
+    "phosphate": "Phosphate_level",
+    "ammonia": "Ammonia_level",
+    "nitrate": "Nitrate_level",
+    "turbidity": "Turbidity_level",
+    "dissolved_oxygen": "Dissolved_oxygen",
+    "conductivity": "Conductivity",
 }
 
 # Submissions that are plainly not samples. Matched case-insensitively
