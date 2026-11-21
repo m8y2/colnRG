@@ -58,7 +58,12 @@ def require_admin(authorization: str | None) -> None:
     """
     admin_key = os.environ.get("ADMIN_API_KEY", "")
     if not admin_key:
-        return
+        # Never silently open a billable/write endpoint just because the key
+        # is missing. Local development can opt in explicitly with
+        # ALLOW_ANONYMOUS_ADMIN=1; anything else fails closed.
+        if os.environ.get("ALLOW_ANONYMOUS_ADMIN") == "1":
+            return
+        raise HTTPException(503, "Admin key is not configured on this server.")
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "This endpoint needs an Authorization: Bearer <key> header.")
     # compare_digest, not ==: a plain string comparison returns on the

@@ -3,6 +3,7 @@ import os
 import secrets
 import threading
 import time
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
@@ -28,7 +29,19 @@ app.add_middleware(
 _photo_cache = {}
 _PHOTO_LOCK = threading.Lock()
 
+def _is_epicollect_url(url):
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme not in ("http", "https"):
+        return False
+    host = (parsed.hostname or "").lower()
+    return host == "epicollect.net" or host.endswith(".epicollect.net")
+
 def _is_real_photo(url):
+    if not _is_epicollect_url(url):
+        return False
     try:
         req = urllib.request.Request(url, method="HEAD")
         resp = urllib.request.urlopen(req, timeout=5)
@@ -369,7 +382,8 @@ def get_rounds(
     }
 
 @app.post("/api/sync")
-def trigger_sync():
+def trigger_sync(authorization: str = Header(...)):
+    _verify_admin(authorization)
     result = run_sync()
     return result
 
@@ -670,7 +684,8 @@ def list_all_site_reports():
 
 
 @app.post("/api/reports/site/generate")
-def trigger_site_report(site: str = Query(...)):
+def trigger_site_report(site: str = Query(...), authorization: str = Header(...)):
+    _verify_admin(authorization)
     from llm_cleanup.report_generator import generate_site_report as _gen_site
     task_id = f"site_{site}"
 
@@ -733,7 +748,9 @@ def trigger_round_report(
     round_label: str = Query(...),
     round_start: str = Query(...),
     round_end: str = Query(...),
+    authorization: str = Header(...),
 ):
+    _verify_admin(authorization)
     from llm_cleanup.report_generator import generate_round_report as _gen_round
     task_id = f"round_{round_label}"
 
@@ -776,7 +793,7 @@ def _verify_admin(authorization: str = Header(...)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Missing or invalid Authorization header")
     token = authorization.removeprefix("Bearer ")
-    if not ADMIN_API_KEY or token != ADMIN_API_KEY:
+    if not ADMIN_API_KEY or not secrets.compare_digest(token, ADMIN_API_KEY):
         raise HTTPException(403, "Invalid admin key")
 
 def require_api_key(api_key: str):

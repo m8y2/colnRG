@@ -24,12 +24,31 @@ import hashlib
 import io
 import threading
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
 from PIL import Image, ImageOps
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "media_cache"
+
+# Photos are fetched server-side from URLs that originate in EpiCollect
+# submissions. Without a host allowlist a crafted submission could point a
+# photo URL at an internal address (e.g. the cloud metadata service at
+# 169.254.169.254 or the local API on 127.0.0.1:8000) and turn the media
+# endpoint into an SSRF. Only EpiCollect's own host is ever legitimate.
+MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
+
+
+def is_allowed_photo_url(url: str) -> bool:
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme not in ("http", "https"):
+        return False
+    host = (parsed.hostname or "").lower()
+    return host == "epicollect.net" or host.endswith(".epicollect.net")
 
 # A strip is a letterbox bar when its sampled pixels are this uniform
 # (std-dev of luminance, 0-255 scale) ...
@@ -71,6 +90,8 @@ def is_real_photo_head(url: str) -> bool:
     synced" JPEG (with `Cache-Control: no-store`) until a photo has
     finished uploading. Real photos answer `max-age=..., public`. This
     checks that, with retries for EpiCollect's rate limiting."""
+    if not is_allowed_photo_url(url):
+        return False
     for attempt in range(3):
         try:
             req = urllib.request.Request(url, method="HEAD")
@@ -167,9 +188,16 @@ def auto_crop(image: Image.Image) -> tuple[Image.Image, tuple | None]:
 
 
 def _download(url: str) -> bytes:
+    if not is_allowed_photo_url(url):
+        raise ValueError("refusing to fetch a photo from a non-EpiCollect host")
     req = urllib.request.Request(url, headers=_DOWNLOAD_HEADERS)
     with urllib.request.urlopen(req, timeout=60) as resp:
-        return resp.read()
+        if not is_allowed_photo_url(resp.geturl()):
+            raise ValueError("refusing a photo redirect to a non-EpiCollect host")
+        data = resp.read(MAX_DOWNLOAD_BYTES + 1)
+    if len(data) > MAX_DOWNLOAD_BYTES:
+        raise ValueError("photo exceeds the maximum download size")
+    return data
 
 
 def _record_modified(key: str, modified: bool) -> None:
