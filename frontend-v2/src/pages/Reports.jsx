@@ -3,6 +3,8 @@
 // why that changed. Update REPORT_URL and the two labels below when a new
 // report is published; the file itself lives in public/reports/.
 
+import CopyrightNotice from '../components/CopyrightNotice.jsx';
+
 const REPORT_URL = '/reports/coln-report-august-2026.pdf';
 const REPORT_LABEL = 'Project report, August 2026';
 const REPORT_FILENAME = 'Coln River Guardians report - August 2026.pdf';
@@ -35,6 +37,8 @@ export default function Reports() {
           </p>
         </object>
       </section>
+
+      <CopyrightNotice />
     </div>
   );
 }
