@@ -9,7 +9,8 @@ import { BandLegend } from '../components/BandChip.jsx';
 import { formatReading } from '../lib/format.js';
 import { isBanded, classifyBand } from '../lib/bands.js';
 
-function downstreamFinding(points, paramLabel, higherBetter) {
+function downstreamFinding(points, parameter) {
+  const { key, label: paramLabel, direction } = parameter;
   const numeric = points.filter((p) => p.value !== null && p.value !== undefined);
   if (numeric.length < 4) return `${paramLabel} along the river`;
   const third = Math.max(1, Math.floor(numeric.length / 3));
@@ -20,7 +21,10 @@ function downstreamFinding(points, paramLabel, higherBetter) {
   const b = avg(downstream);
   const rel = a !== 0 ? Math.abs(b - a) / Math.abs(a) : 0;
   if (rel < 0.1) return `${paramLabel} is similar all along the river`;
-  const worse = higherBetter ? b < a : b > a;
+  if (key === 'water_depth') {
+    return b > a ? 'Water is deeper downstream' : 'Water is shallower downstream';
+  }
+  const worse = direction === 'higher_better' ? b < a : b > a;
   return worse ? `${paramLabel} is worse further downstream` : `${paramLabel} is better further downstream`;
 }
 
@@ -56,7 +60,7 @@ export default function AlongTheRiver() {
   const nonNumeric = allPoints.filter((p) => (p.value === null || p.value === undefined) && p.value_raw);
 
   const title = parameter
-    ? downstreamFinding(allPoints, parameter.label, parameter.direction === 'higher_better')
+    ? downstreamFinding(allPoints, parameter)
     : 'Along the river';
 
   const chartStatus = status === 'loading' ? 'loading' : status === 'error' ? 'error' : numericPoints.length === 0 ? 'empty' : 'ready';

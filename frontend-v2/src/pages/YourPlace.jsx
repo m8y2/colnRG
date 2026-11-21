@@ -12,11 +12,11 @@ import UsableCount from '../components/UsableCount.jsx';
 import { formatDate, formatReading, unitLabel } from '../lib/format.js';
 import { isBanded, classifyBand } from '../lib/bands.js';
 
-function trendWords(trend) {
+function trendWords(trend, parameterLabel) {
   if (!trend || trend.status === 'insufficient_data') return "There aren't enough readings yet to see a trend.";
   if (trend.direction === 'improving') return 'Getting better over time.';
   if (trend.direction === 'worsening') return 'Getting worse over time.';
-  return 'No clear change over time.';
+  return `There is no clear trend in ${parameterLabel.toLowerCase()} at the moment.`;
 }
 
 function positionSentence(location) {
@@ -108,7 +108,7 @@ function LocationDetail({ w3w }) {
               {numeric.n_usable > 0 && (
                 <p className="text-sm text-secondary mt-0">
                   <UsableCount nUsable={numeric.n_usable} nExcluded={stat?.n_excluded} />
-                  {trendWords(trends[key]) ? `. ${trendWords(trends[key])}` : ''}
+                  {trendWords(trends[key], parameter.label) ? `. ${trendWords(trends[key], parameter.label)}` : ''}
                 </p>
               )}
               {notes.length > 0 && (

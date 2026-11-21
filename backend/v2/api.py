@@ -168,8 +168,31 @@ def list_locations():
             "FROM observations o WHERE o.w3w IS NOT NULL AND o.excluded = 0 "
             "GROUP BY o.w3w"
         ).fetchall()
+        # Latest usable numeric reading per (location, parameter) in one
+        # pass. This used to be a `readings()` call inside a
+        # for-location x for-parameter loop -- ~350 round-trips per page
+        # load and the single biggest cause of the site feeling slow.
+        latest_rows = conn.execute(
+            """
+            SELECT w3w, parameter, value, date, qualifier FROM (
+                SELECT o.w3w AS w3w, m.parameter AS parameter, m.value AS value,
+                       o.sample_date AS date, m.qualifier AS qualifier,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY o.w3w, m.parameter
+                           ORDER BY o.sample_date DESC, o.sample_time DESC
+                       ) AS rn
+                FROM measurements m JOIN observations o ON o.ec5_uuid = m.ec5_uuid
+                WHERE o.excluded = 0 AND m.usable = 1 AND m.value IS NOT NULL
+                  AND o.sample_date IS NOT NULL AND o.w3w IS NOT NULL
+            ) WHERE rn = 1
+            """
+        ).fetchall()
     finally:
         conn.close()
+
+    latest_by_loc: dict[str, dict] = {}
+    for lr in latest_rows:
+        latest_by_loc.setdefault(lr["w3w"], {})[lr["parameter"]] = lr
 
     loc_meta = {loc["w3w"]: loc for loc in ordered_locations()}
 
@@ -177,11 +200,11 @@ def list_locations():
     for r in rows:
         w3w = r["w3w"]
         meta = loc_meta.get(w3w)
+        per_param = latest_by_loc.get(w3w, {})
         latest_bands = {}
         for p in PARAMETER_ORDER:
-            p_rows = readings(w3w=w3w, parameter=p)
-            if p_rows:
-                latest = p_rows[-1]
+            latest = per_param.get(p)
+            if latest:
                 latest_bands[p] = {
                     "value": latest["value"],
                     "date": latest["date"],
@@ -535,10 +558,10 @@ def get_downstream(
 
 # ── /rounds, /rounds/{n} ─────────────────────────────────────────────
 
-def _round_parameter_summary(start: str, end: str) -> dict:
+def _parameter_summary(values_by_param: dict[str, list]) -> dict:
     parameters = {}
     for p in PARAMETER_ORDER:
-        vals = [r["value"] for r in readings(parameter=p, date_from=start, date_to=end)]
+        vals = values_by_param.get(p) or []
         if vals:
             dp = round_dp(p)
             mean_v = round(statistics.mean(vals), dp)
@@ -548,13 +571,30 @@ def _round_parameter_summary(start: str, end: str) -> dict:
     return parameters
 
 
+def _round_parameter_summary(start: str, end: str) -> dict:
+    grouped: dict[str, list] = {}
+    for row in readings(date_from=start, date_to=end):
+        grouped.setdefault(row["parameter"], []).append(row["value"])
+    return _parameter_summary(grouped)
+
+
 @router.get("/rounds")
 def list_rounds():
     """Detected sampling rounds with per-parameter catchment means and
     bands (same round-detection algorithm as v1, now run over v2's
     `observations`, so round numbers agree with v1's)."""
     rounds = detect_rounds()
-    out = [{**r, "parameters": _round_parameter_summary(r["start"], r["end"])} for r in rounds]
+    # One pass over every reading, bucketed into rounds, rather than a
+    # readings() query for each (round, parameter) pair -- that was ~120
+    # queries and the slowest part of this endpoint.
+    buckets: dict[int, dict[str, list]] = {r["round"]: {} for r in rounds}
+    for row in readings():
+        d = row["date"]
+        for r in rounds:
+            if r["start"] <= d <= r["end"]:
+                buckets[r["round"]].setdefault(row["parameter"], []).append(row["value"])
+                break
+    out = [{**r, "parameters": _parameter_summary(buckets[r["round"]])} for r in rounds]
     return {"rounds": out}
 
 
@@ -565,24 +605,23 @@ def get_round(n: int):
     if r is None:
         raise HTTPException(404, f"Round {n} not found")
 
+    # One query for the whole round, then group in Python, instead of
+    # readings() for every (location, parameter) pair.
+    catchment: dict[str, list] = {}
+    by_loc: dict[str, dict[str, list]] = {}
+    for row in readings(date_from=r["start"], date_to=r["end"]):
+        catchment.setdefault(row["parameter"], []).append(row["value"])
+        if row["w3w"] is not None:
+            by_loc.setdefault(row["w3w"], {}).setdefault(row["parameter"], []).append(row["value"])
+
     locations_data = {}
     for loc in ordered_locations():
         w3w = loc["w3w"]
-        per_param = {}
-        has_any = False
-        for p in PARAMETER_ORDER:
-            vals = [row["value"] for row in readings(w3w=w3w, parameter=p, date_from=r["start"], date_to=r["end"])]
-            if vals:
-                has_any = True
-                dp = round_dp(p)
-                mean_v = round(statistics.mean(vals), dp)
-                per_param[p] = {"n": len(vals), "mean": mean_v, "band": classify_band(p, mean_v)}
-            else:
-                per_param[p] = {"n": 0, "mean": None, "band": None}
-        if has_any:
-            locations_data[w3w] = per_param
+        grouped = by_loc.get(w3w)
+        if grouped:
+            locations_data[w3w] = _parameter_summary(grouped)
 
-    return {"round": r, "parameters": _round_parameter_summary(r["start"], r["end"]), "locations": locations_data}
+    return {"round": r, "parameters": _parameter_summary(catchment), "locations": locations_data}
 
 
 # ── /data-quality ─────────────────────────────────────────────────────

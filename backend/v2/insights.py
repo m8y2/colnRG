@@ -42,6 +42,7 @@ through the normal numeric path with a caveat attached.
 from __future__ import annotations
 
 import json
+import math
 import statistics
 from datetime import datetime
 
@@ -726,6 +727,77 @@ def catchment_summary(date_from: str | None = None, date_to: str | None = None) 
     }
 
 
+def _beta_continued_fraction(a: float, b: float, x: float) -> float:
+    """Continued-fraction evaluation of the incomplete beta function
+    (Numerical Recipes' `betacf`). Only used by the trend significance
+    test below, which needs a t-distribution p-value and the project has no
+    SciPy dependency."""
+    max_iter = 200
+    eps = 3e-12
+    fpmin = 1e-300
+    qab = a + b
+    qap = a + 1.0
+    qam = a - 1.0
+    c = 1.0
+    d = 1.0 - qab * x / qap
+    if abs(d) < fpmin:
+        d = fpmin
+    d = 1.0 / d
+    h = d
+    for m in range(1, max_iter + 1):
+        m2 = 2 * m
+        aa = m * (b - m) * x / ((qam + m2) * (a + m2))
+        d = 1.0 + aa * d
+        if abs(d) < fpmin:
+            d = fpmin
+        c = 1.0 + aa / c
+        if abs(c) < fpmin:
+            c = fpmin
+        d = 1.0 / d
+        h *= d * c
+        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
+        d = 1.0 + aa * d
+        if abs(d) < fpmin:
+            d = fpmin
+        c = 1.0 + aa / c
+        if abs(c) < fpmin:
+            c = fpmin
+        d = 1.0 / d
+        step = d * c
+        h *= step
+        if abs(step - 1.0) < eps:
+            break
+    return h
+
+
+def _regularized_incomplete_beta(a: float, b: float, x: float) -> float:
+    if x <= 0.0:
+        return 0.0
+    if x >= 1.0:
+        return 1.0
+    ln_bt = (
+        math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b)
+        + a * math.log(x) + b * math.log(1.0 - x)
+    )
+    bt = math.exp(ln_bt)
+    if x < (a + 1.0) / (a + b + 2.0):
+        return bt * _beta_continued_fraction(a, b, x) / a
+    return 1.0 - bt * _beta_continued_fraction(b, a, 1.0 - x) / b
+
+
+def _pearson_two_tailed_p(r: float, n: int) -> float:
+    """Two-tailed p-value for a Pearson correlation coefficient `r` over
+    `n` paired points, using the t distribution with n-2 degrees of
+    freedom. Pure Python so no SciPy/numpy dependency is required."""
+    if n < 3:
+        return 1.0
+    r = max(-0.999999999, min(0.999999999, r))
+    df = n - 2
+    t2 = (r * r * df) / (1.0 - r * r)
+    x = df / (df + t2)
+    return _regularized_incomplete_beta(df / 2.0, 0.5, x)
+
+
 def trend(w3w: str | None, parameter: str) -> dict:
     """Ordinary least-squares slope of `parameter` over time, at `w3w`
     (or across the whole catchment if `w3w` is None), plus a plain-English
@@ -774,13 +846,23 @@ def trend(w3w: str | None, parameter: str) -> dict:
     span_days = max(xs) - min(xs)
     total_change = slope_per_day * span_days
 
+    # Decide whether a trend is real with a Pearson correlation (PMCC) test,
+    # two-tailed at 90% significance (p < 0.10). The previous rule — total
+    # change exceeding 10% of a band width — called scatter a trend. The
+    # test statistic is deliberately not returned: the UI and the reports
+    # should only ever see the plain direction word, never the maths.
+    ss_yy = sum((y - mean_y) ** 2 for y in ys)
+    if ss_yy == 0:
+        p_value = 1.0
+    else:
+        correlation = ss_xy / math.sqrt(ss_xx * ss_yy)
+        p_value = _pearson_two_tailed_p(correlation, n)
+
     direction_word = "no clear change"
-    width = band_width(parameter)
-    if width:
-        if abs(total_change) > 0.10 * width:
-            higher_is_better = PARAMETERS[parameter]["direction"] == "higher_better"
-            improving = (total_change > 0) if higher_is_better else (total_change < 0)
-            direction_word = "improving" if improving else "worsening"
+    if p_value < 0.10:
+        higher_is_better = PARAMETERS[parameter]["direction"] == "higher_better"
+        improving = (slope_per_day > 0) if higher_is_better else (slope_per_day < 0)
+        direction_word = "improving" if improving else "worsening"
 
     dp = round_dp(parameter)
     return {
@@ -1112,14 +1194,26 @@ def data_quality() -> dict:
     # Per-location gaps over 60 days and suspicious repeats (>=4 identical
     # usable values running, in date order), computed over located,
     # non-excluded, usable readings.
-    all_dates = sorted({r["date"] for r in readings()})
+    all_rows = readings()
+    all_dates = sorted({r["date"] for r in all_rows})
     latest_overall = all_dates[-1] if all_dates else None
+
+    # Group every usable reading once, instead of calling readings() per
+    # location and again per (location, parameter) below -- that was ~400
+    # round-trips and made this endpoint take about a second.
+    dates_by_loc: dict[str, set] = {}
+    rows_by_loc_param: dict[str, dict[str, list]] = {}
+    for r in all_rows:
+        if r["w3w"] is None:
+            continue
+        dates_by_loc.setdefault(r["w3w"], set()).add(r["date"])
+        rows_by_loc_param.setdefault(r["w3w"], {}).setdefault(r["parameter"], []).append(r)
 
     locations_seen = sorted({loc["w3w"] for loc in ordered_locations()})
     gaps: dict[str, dict] = {}
     repeats: list[dict] = []
     for w3w in locations_seen:
-        loc_dates = sorted({r["date"] for r in readings(w3w=w3w)})
+        loc_dates = sorted(dates_by_loc.get(w3w, set()))
         loc_gaps = []
         for prev, nxt in zip(loc_dates, loc_dates[1:]):
             gap_days = (datetime.strptime(nxt, "%Y-%m-%d") - datetime.strptime(prev, "%Y-%m-%d")).days
@@ -1135,7 +1229,7 @@ def data_quality() -> dict:
             gaps[w3w] = {"id": f"dataquality|{w3w}|gaps", "value": loc_gaps}
 
         for p in PARAMETER_ORDER:
-            rows = readings(w3w=w3w, parameter=p)
+            rows = rows_by_loc_param.get(w3w, {}).get(p, [])
             run_value, run_len, run_start, prev_date = None, 0, None, None
             for r in rows:
                 if run_len and r["value"] == run_value:

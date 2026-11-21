@@ -20,7 +20,7 @@ function trendTitle(parameterLabel, trend) {
   }
   if (trend.direction === 'improving') return `${parameterLabel} has been getting better`;
   if (trend.direction === 'worsening') return `${parameterLabel} has been getting worse`;
-  return `${parameterLabel} has not changed much`;
+  return `There is no clear trend in ${parameterLabel.toLowerCase()} at the moment`;
 }
 
 export default function OverTime() {
